@@ -1,0 +1,31 @@
+key,value
+# ===== Тілдер (өз жазылуымен, барлық кестеде бірдей) =====
+lang.be,Беларуская
+lang.de,Deutsch
+lang.en,English
+lang.es,Español
+lang.kk,Қазақша
+lang.ru,Русский
+lang.tr,Türkçe
+
+# ===== Жалпы жазулар =====
+ui.play,Ойнау
+ui.pause,Кідірту
+ui.resume,Жалғастыру
+ui.restart,Қайта бастау
+ui.close,Жабу
+ui.back,Артқа
+ui.yes,Иә
+ui.no,Жоқ
+ui.ok,Жарайды
+ui.confirm,Растау
+ui.cancel,Болдырмау
+ui.loading,Жүктелуде...
+
+# ===== Параметрлер =====
+settings.title,Параметрлер
+settings.language,Тіл
+settings.music,Музыка
+settings.sounds,Дыбыстар
+settings.reset,Прогресті тастау
+settings.reset_confirm,Барлық прогресс жойылады. Жалғастырасыз ба?

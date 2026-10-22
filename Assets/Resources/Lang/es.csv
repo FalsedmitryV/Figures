@@ -1,0 +1,31 @@
+key,value
+# ===== Idiomas (forma nativa, igual en todas las tablas) =====
+lang.be,Беларуская
+lang.de,Deutsch
+lang.en,English
+lang.es,Español
+lang.kk,Қазақша
+lang.ru,Русский
+lang.tr,Türkçe
+
+# ===== Etiquetas comunes =====
+ui.play,Jugar
+ui.pause,Pausa
+ui.resume,Continuar
+ui.restart,Reiniciar
+ui.close,Cerrar
+ui.back,Atrás
+ui.yes,Sí
+ui.no,No
+ui.ok,OK
+ui.confirm,Confirmar
+ui.cancel,Cancelar
+ui.loading,Cargando...
+
+# ===== Ajustes =====
+settings.title,Ajustes
+settings.language,Idioma
+settings.music,Música
+settings.sounds,Sonidos
+settings.reset,Reiniciar progreso
+settings.reset_confirm,Se borrará todo el progreso. ¿Continuar?

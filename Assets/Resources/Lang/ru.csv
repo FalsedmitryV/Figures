@@ -1,0 +1,31 @@
+key,value
+# ===== Языки (в родной форме, одинаково во всех таблицах) =====
+lang.be,Беларуская
+lang.de,Deutsch
+lang.en,English
+lang.es,Español
+lang.kk,Қазақша
+lang.ru,Русский
+lang.tr,Türkçe
+
+# ===== Общие подписи =====
+ui.play,Играть
+ui.pause,Пауза
+ui.resume,Продолжить
+ui.restart,Заново
+ui.close,Закрыть
+ui.back,Назад
+ui.yes,Да
+ui.no,Нет
+ui.ok,ОК
+ui.confirm,Подтвердить
+ui.cancel,Отмена
+ui.loading,Загрузка...
+
+# ===== Настройки =====
+settings.title,Настройки
+settings.language,Язык
+settings.music,Музыка
+settings.sounds,Звуки
+settings.reset,Сбросить прогресс
+settings.reset_confirm,Весь прогресс будет удалён. Продолжить?

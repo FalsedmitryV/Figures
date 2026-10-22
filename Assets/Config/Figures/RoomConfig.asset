@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 787e3e5efd83fed4a99ec5e59340ac70, type: 3}
+  m_Name: RoomConfig
+  m_EditorClassIdentifier: Assembly-CSharp::Figures.RoomConfig
+  innerSize: {x: 8, y: 6}
+  wallHeight: 3
+  wallThickness: 0.2
+  buildCeiling: 1
+  doorwayWall: 2
+  doorwayWidth: 1.2
+  doorwayHeight: 2.2
+  doorwayOffset: 0
+  buildProps: 1
+  deskSize: {x: 2, y: 0.78, z: 1.2}
+  spawnPoint: {x: 0, y: -1.8}
+  spawnYaw: 0
+  floorMaterial: {fileID: 2100000, guid: 297769a9c751dbd41af2eb7685cd60b8, type: 2}
+  wallMaterial: {fileID: 2100000, guid: 558c5b422ef6337429765031c1fca9b5, type: 2}
+  propMaterial: {fileID: 2100000, guid: 5ce7555c4997bde4986b1283a2d6ea11, type: 2}
+  buildLamp: 1
+  lampIntensity: 3.2
+  lampRange: 12

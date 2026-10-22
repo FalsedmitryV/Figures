@@ -1,0 +1,31 @@
+key,value
+# ===== Diller (ana biçimleriyle, tüm tablolarda aynı) =====
+lang.be,Беларуская
+lang.de,Deutsch
+lang.en,English
+lang.es,Español
+lang.kk,Қазақша
+lang.ru,Русский
+lang.tr,Türkçe
+
+# ===== Genel etiketler =====
+ui.play,Oyna
+ui.pause,Duraklat
+ui.resume,Devam et
+ui.restart,Yeniden başlat
+ui.close,Kapat
+ui.back,Geri
+ui.yes,Evet
+ui.no,Hayır
+ui.ok,Tamam
+ui.confirm,Onayla
+ui.cancel,İptal
+ui.loading,Yükleniyor...
+
+# ===== Ayarlar =====
+settings.title,Ayarlar
+settings.language,Dil
+settings.music,Müzik
+settings.sounds,Sesler
+settings.reset,İlerlemeyi sıfırla
+settings.reset_confirm,Tüm ilerleme silinecek. Devam edilsin mi?

@@ -1,0 +1,31 @@
+key,value
+# ===== Languages (native form, identical in every table) =====
+lang.be,Беларуская
+lang.de,Deutsch
+lang.en,English
+lang.es,Español
+lang.kk,Қазақша
+lang.ru,Русский
+lang.tr,Türkçe
+
+# ===== Common labels =====
+ui.play,Play
+ui.pause,Pause
+ui.resume,Resume
+ui.restart,Restart
+ui.close,Close
+ui.back,Back
+ui.yes,Yes
+ui.no,No
+ui.ok,OK
+ui.confirm,Confirm
+ui.cancel,Cancel
+ui.loading,Loading...
+
+# ===== Settings =====
+settings.title,Settings
+settings.language,Language
+settings.music,Music
+settings.sounds,Sounds
+settings.reset,Reset progress
+settings.reset_confirm,All progress will be deleted. Continue?

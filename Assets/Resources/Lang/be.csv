@@ -1,0 +1,31 @@
+key,value
+# ===== Мовы (у роднай форме, аднолькава ва ўсіх табліцах) =====
+lang.be,Беларуская
+lang.de,Deutsch
+lang.en,English
+lang.es,Español
+lang.kk,Қазақша
+lang.ru,Русский
+lang.tr,Türkçe
+
+# ===== Агульныя подпісы =====
+ui.play,Гуляць
+ui.pause,Паўза
+ui.resume,Працягнуць
+ui.restart,Нанова
+ui.close,Закрыць
+ui.back,Назад
+ui.yes,Так
+ui.no,Не
+ui.ok,ОК
+ui.confirm,Пацвердзіць
+ui.cancel,Адмена
+ui.loading,Загрузка...
+
+# ===== Налады =====
+settings.title,Налады
+settings.language,Мова
+settings.music,Музыка
+settings.sounds,Гукі
+settings.reset,Скінуць прагрэс
+settings.reset_confirm,Увесь прагрэс будзе выдалены. Працягнуць?

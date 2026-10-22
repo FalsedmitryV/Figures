@@ -1,0 +1,31 @@
+key,value
+# ===== Sprachen (in nativer Form, in allen Tabellen gleich) =====
+lang.be,Беларуская
+lang.de,Deutsch
+lang.en,English
+lang.es,Español
+lang.kk,Қазақша
+lang.ru,Русский
+lang.tr,Türkçe
+
+# ===== Allgemeine Beschriftungen =====
+ui.play,Spielen
+ui.pause,Pause
+ui.resume,Fortsetzen
+ui.restart,Neustart
+ui.close,Schließen
+ui.back,Zurück
+ui.yes,Ja
+ui.no,Nein
+ui.ok,OK
+ui.confirm,Bestätigen
+ui.cancel,Abbrechen
+ui.loading,Wird geladen...
+
+# ===== Einstellungen =====
+settings.title,Einstellungen
+settings.language,Sprache
+settings.music,Musik
+settings.sounds,Geräusche
+settings.reset,Fortschritt zurücksetzen
+settings.reset_confirm,Der gesamte Fortschritt wird gelöscht. Fortfahren?
