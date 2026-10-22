@@ -216,6 +216,11 @@ namespace Figures.EditorTools
                 so.FindProperty("inspectZoomRange").vector2Value = new Vector2(0.14f, 0.5f);
                 so.FindProperty("inspectRotateSpeed").floatValue = 0.4f;
 
+                // Деталь должна обходить кусок целиком за полэкрана мыши: fitRange —
+                // чуть больше роста фигурки (0.25), скорость под это и подобрана.
+                so.FindProperty("fitSpeed").floatValue = 0.0006f;
+                so.FindProperty("fitRange").floatValue = 0.2f;
+
                 // Дотянуться можно до стола, а не через комнату: игрок больше не сидит
                 // перед витриной, он к ней подходит.
                 so.FindProperty("reachDistance").floatValue = 2.2f;

@@ -46,17 +46,23 @@ namespace Figures
         [Tooltip("Сколько ячеек внизу экрана.")]
         [Min(1)][SerializeField] private int hotbarSlots = 6;
 
-        [Header("Осмотр")]
-        [Tooltip("Стартовая дистанция от камеры при осмотре, юниты.")]
+        [Header("Осмотр и сборка в руках")]
+        [Tooltip("Дистанция от камеры, на которой висит кусок в режиме сборки, юниты.")]
         [Min(0.05f)][SerializeField] private float inspectDistance = 0.45f;
 
-        [Tooltip("Границы приближения при осмотре, юниты.")]
+        [Tooltip("Границы приближения куска в руках, юниты.")]
         [SerializeField] private Vector2 inspectZoomRange = new(0.22f, 0.8f);
 
         [Min(0f)][SerializeField] private float inspectZoomSpeed = 0.0015f;
 
         [Tooltip("Градусов на пиксель смещения указателя.")]
         [Min(0f)][SerializeField] private float inspectRotateSpeed = 0.35f;
+
+        [Tooltip("Скорость подноса детали к куску в руках, юниты на пиксель смещения указателя.")]
+        [Min(0f)][SerializeField] private float fitSpeed = 0.0006f;
+
+        [Tooltip("Насколько далеко деталь уводится от куска в руках, юниты.")]
+        [Min(0.01f)][SerializeField] private float fitRange = 0.2f;
 
         [Header("Подсветка")]
         [Tooltip("Множитель яркости детали под курсором.")]
@@ -79,6 +85,8 @@ namespace Figures
         public Vector2 InspectZoomRange => inspectZoomRange;
         public float InspectZoomSpeed => inspectZoomSpeed;
         public float InspectRotateSpeed => inspectRotateSpeed;
+        public float FitSpeed => fitSpeed;
+        public float FitRange => fitRange;
         public float HoverBoost => hoverBoost;
         public Color SocketReadyColor => socketReadyColor;
     }

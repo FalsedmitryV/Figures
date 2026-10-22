@@ -22,12 +22,19 @@ namespace Figures
         private const string ZoomActionName = "ScrollWheel";
         private const string StashActionName = "Interact";
 
+        /// <summary>
+        /// Модификатор колеса. Shift уже есть в карте игрока как бег, и в режиме сборки
+        /// он свободен: там колесо перебирает ячейки, а приближение куска нужно тем же
+        /// колесом. Новая привязка ради этого в ассет не добавляется.
+        /// </summary>
+        private const string ZoomModifierActionName = "Sprint";
+
         [Tooltip("Ассет со всеми привязками. Пусто — ввода не будет.")]
         [SerializeField] private InputActionAsset actions;
 
         [SerializeField] private string actionMapName = "UI";
 
-        [Tooltip("Карта, из которой берётся действие «убрать в ячейку / достать».")]
+        [Tooltip("Карта, из которой берутся «убрать в ячейку / достать» и модификатор колеса.")]
         [SerializeField] private string stashMapName = "Player";
 
         private InputActionMap _map;
@@ -36,6 +43,7 @@ namespace Figures
         private InputAction _inspect;
         private InputAction _zoom;
         private InputAction _stash;
+        private InputAction _zoomModifier;
 
         private Vector2 _lastPointer;
         private bool _hasLastPointer;
@@ -61,7 +69,9 @@ namespace Figures
             _grab = _map.FindAction(GrabActionName, false);
             _inspect = _map.FindAction(InspectActionName, false);
             _zoom = _map.FindAction(ZoomActionName, false);
-            _stash = actions.FindActionMap(stashMapName, false)?.FindAction(StashActionName, false);
+            var stashMap = actions.FindActionMap(stashMapName, false);
+            _stash = stashMap?.FindAction(StashActionName, false);
+            _zoomModifier = stashMap?.FindAction(ZoomModifierActionName, false);
         }
 
         // Чужое действие только включается, но не выключается: карта Player принадлежит
@@ -70,6 +80,7 @@ namespace Figures
         {
             _map?.Enable();
             _stash?.Enable();
+            _zoomModifier?.Enable();
         }
 
         private void OnDisable()
@@ -106,7 +117,9 @@ namespace Figures
                 _grab?.IsPressed() ?? false,
                 _grab?.WasReleasedThisFrame() ?? false,
                 _inspect?.IsPressed() ?? false,
+                _inspect?.WasPressedThisFrame() ?? false,
                 (_zoom?.ReadValue<Vector2>() ?? Vector2.zero).y,
+                _zoomModifier?.IsPressed() ?? false,
                 _stash?.WasPressedThisFrame() ?? false);
         }
     }
