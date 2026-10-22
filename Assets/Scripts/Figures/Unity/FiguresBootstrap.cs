@@ -28,6 +28,9 @@ namespace Figures
         [Tooltip("Необязательно. Пусто — коробки и фото заказывать негде.")]
         [SerializeField] private ComputerTerminal terminal;
 
+        [Tooltip("Необязательно. Пусто — ячейки работают, но на экране их не видно.")]
+        [SerializeField] private HotbarView hotbarView;
+
         [Tooltip("Пусто — подставки соберутся со сцены по компоненту.")]
         [SerializeField] private List<FigureStandView> stands = new();
 
@@ -37,6 +40,9 @@ namespace Figures
 
         /// <summary>Игровой цикл: кошелёк, склад, магазин коробок и лента фото.</summary>
         public CollectionStudio Studio { get; private set; }
+
+        /// <summary>Ячейки под рукой: куда убирается деталь из руки.</summary>
+        public Hotbar Hotbar { get; private set; }
 
         private void Awake()
         {
@@ -76,7 +82,11 @@ namespace Figures
             // На поднос выкладывается склад, а не весь каталог: детали приходят в
             // коробках, и витрина должна показывать то, что игрок действительно купил.
             if (spawner != null) spawner.Spawn(config, OwnedParts());
-            if (grabber != null) grabber.Bind(Board, config.Interaction, stands, spawner?.Tray);
+            Hotbar = new Hotbar(config.Interaction.HotbarSlots);
+
+            if (grabber != null)
+                grabber.Bind(Board, config.Interaction, stands, spawner?.Spawned, spawner?.Tray, Hotbar);
+            if (hotbarView != null) hotbarView.Bind(Hotbar, grabber != null ? grabber.ViewOf : null);
             if (status != null) status.Bind(Board);
             if (terminal != null) terminal.Bind(Studio, Board);
 

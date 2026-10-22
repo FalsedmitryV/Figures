@@ -174,13 +174,23 @@ namespace Figures
         /// </summary>
         private static void Rest(Transform target, float planeY)
         {
-            var renderers = target.GetComponentsInChildren<Renderer>(includeInactive: true);
-            if (renderers.Length == 0) return;
+            var found = false;
+            var bounds = default(Bounds);
 
-            var bounds = renderers[0].bounds;
-            for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+            // Метки гнёзд выключены и в посадку не входят: метка гнезда ног висит ниже таза.
+            foreach (var renderer in target.GetComponentsInChildren<Renderer>(includeInactive: true))
+            {
+                if (!renderer.enabled) continue;
 
-            target.position += Vector3.up * (planeY + RestLift - bounds.min.y);
+                if (found) bounds.Encapsulate(renderer.bounds);
+                else
+                {
+                    bounds = renderer.bounds;
+                    found = true;
+                }
+            }
+
+            if (found) target.position += Vector3.up * (planeY + RestLift - bounds.min.y);
         }
 
         private static void SetLayer(Transform root, int layer)

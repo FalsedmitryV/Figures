@@ -67,25 +67,26 @@ namespace Figures
         /// <summary>Что стоит в гнезде по его порядковому номеру среди всех гнёзд фигурки.</summary>
         public string PartAtSlot(int slot) => slot >= 0 && slot < _placed.Length ? _placed[slot] : null;
 
-        internal bool Put(PartSlotKind kind, int index, string partId)
+        internal bool PutAny(PartSlotKind kind, string partId)
         {
-            var i = IndexOf(kind, index);
-            if (i < 0 || _placed[i] != null || string.IsNullOrEmpty(partId)) return false;
+            if (string.IsNullOrEmpty(partId)) return false;
 
-            _placed[i] = partId;
-            FilledCount++;
-            return true;
+            for (int i = 0; i < _slots.Length; i++)
+            {
+                if (_slots[i] != kind || _placed[i] != null) continue;
+
+                _placed[i] = partId;
+                FilledCount++;
+                return true;
+            }
+
+            return false;
         }
 
-        internal string Take(PartSlotKind kind, int index)
+        internal void Clear()
         {
-            var i = IndexOf(kind, index);
-            if (i < 0 || _placed[i] == null) return null;
-
-            var partId = _placed[i];
-            _placed[i] = null;
-            FilledCount--;
-            return partId;
+            Array.Clear(_placed, 0, _placed.Length);
+            FilledCount = 0;
         }
 
         /// <summary>Номер гнезда в общем списке по типу и порядковому номеру внутри типа.</summary>

@@ -13,6 +13,7 @@
 [CodeDocs/Architecture.md](CodeDocs/Architecture.md)):
 
 - `PartGrabber` — выключён, детали не берутся; сцена и данные остаются целыми.
+- `HotbarView` — выключен, ячеек внизу экрана нет; сам инвентарь (E и колесо) работает.
 - `BoardStatusView` — необязателен; без него вердикт уходит только в консоль.
 - `FirstPersonPlayer` — выключён, игрок стоит на месте; комната и камера целы.
 - `captureCursor` у `FirstPersonPlayer` — снят, курсор свободен, обзор мышью не идёт.

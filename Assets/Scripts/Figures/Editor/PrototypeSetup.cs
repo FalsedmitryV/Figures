@@ -55,19 +55,26 @@ namespace Figures.EditorTools
             PartSlotKind.Torso, PartSlotKind.Pelvis, PartSlotKind.Arm, PartSlotKind.Leg
         };
 
-        // Раскладка гнёзд на подставке: грубый гуманоид высотой ~0.27 юнита. Торс и таз
-        // разведены, поэтому торс стал короче, а не фигурка выше.
+        // На подставку встают только ноги: всё остальное крепится к деталям.
         private static readonly (PartSlotKind kind, int index, Vector3 offset)[] SocketLayout =
         {
             (PartSlotKind.Leg, 0, new Vector3(-0.025f, 0.032f, 0f)),
-            (PartSlotKind.Leg, 1, new Vector3(0.025f, 0.032f, 0f)),
-            (PartSlotKind.Pelvis, 0, new Vector3(0f, 0.084f, 0f)),
-            (PartSlotKind.Torso, 0, new Vector3(0f, 0.139f, 0f)),
-            (PartSlotKind.Arm, 0, new Vector3(-0.06f, 0.15f, 0f)),
-            (PartSlotKind.Arm, 1, new Vector3(0.06f, 0.15f, 0f)),
-            (PartSlotKind.Head, 0, new Vector3(0f, 0.214f, 0f)),
-            (PartSlotKind.Face, 0, new Vector3(0f, 0.214f, 0.04f)),
-            (PartSlotKind.Hair, 0, new Vector3(0f, 0.247f, 0f))
+            (PartSlotKind.Leg, 1, new Vector3(0.025f, 0.032f, 0f))
+        };
+
+        // Гнёзда на деталях: где центр вставленной детали относительно центра держателя.
+        // Числа — разности центров прежней раскладки на подставке (таз 0.084, торс 0.139,
+        // руки 0.15, голова 0.214, причёска 0.247), поэтому собранная фигурка стоит так же.
+        private static readonly (PartSlotKind holder, PartSlotKind kind, int index, Vector3 offset)[] PortLayout =
+        {
+            (PartSlotKind.Pelvis, PartSlotKind.Leg, 0, new Vector3(-0.025f, -0.052f, 0f)),
+            (PartSlotKind.Pelvis, PartSlotKind.Leg, 1, new Vector3(0.025f, -0.052f, 0f)),
+            (PartSlotKind.Pelvis, PartSlotKind.Torso, 0, new Vector3(0f, 0.055f, 0f)),
+            (PartSlotKind.Torso, PartSlotKind.Arm, 0, new Vector3(-0.06f, 0.011f, 0f)),
+            (PartSlotKind.Torso, PartSlotKind.Arm, 1, new Vector3(0.06f, 0.011f, 0f)),
+            (PartSlotKind.Torso, PartSlotKind.Head, 0, new Vector3(0f, 0.075f, 0f)),
+            (PartSlotKind.Head, PartSlotKind.Face, 0, new Vector3(0f, 0f, 0.04f)),
+            (PartSlotKind.Head, PartSlotKind.Hair, 0, new Vector3(0f, 0.033f, 0f))
         };
 
         private static readonly Dictionary<PartSlotKind, (PrimitiveType primitive, Vector3 scale)> Shapes = new()
@@ -174,6 +181,19 @@ namespace Figures.EditorTools
                     element.FindPropertyRelative("primitive").enumValueIndex = (int)Shapes[kind].primitive;
                     element.FindPropertyRelative("scale").vector3Value = Shapes[kind].scale;
                 }
+
+                var ports = so.FindProperty("ports");
+                ports.arraySize = PortLayout.Length;
+
+                for (int i = 0; i < PortLayout.Length; i++)
+                {
+                    var (holder, kind, index, offset) = PortLayout[i];
+                    var element = ports.GetArrayElementAtIndex(i);
+                    element.FindPropertyRelative("holder").enumValueIndex = (int)holder;
+                    element.FindPropertyRelative("kind").enumValueIndex = (int)kind;
+                    element.FindPropertyRelative("index").intValue = index;
+                    element.FindPropertyRelative("offset").vector3Value = offset;
+                }
             });
 
             return asset;
@@ -200,6 +220,7 @@ namespace Figures.EditorTools
                 // перед витриной, он к ней подходит.
                 so.FindProperty("reachDistance").floatValue = 2.2f;
                 so.FindProperty("dropOnRelease").boolValue = true;
+                so.FindProperty("hotbarSlots").intValue = 6;
             });
 
             return asset;
@@ -428,7 +449,7 @@ namespace Figures.EditorTools
             List<FigureStandView> stands, FirstPersonPlayer player, ComputerTerminal terminal)
         {
             var go = new GameObject("Bootstrap",
-                typeof(FiguresInputReader), typeof(PartGrabber), typeof(FiguresBootstrap));
+               typeof(FiguresInputReader), typeof(PartGrabber), typeof(HotbarView), typeof(FiguresBootstrap));
             go.transform.SetParent(parent, false);
 
             var reader = go.GetComponent<FiguresInputReader>();
@@ -445,6 +466,15 @@ namespace Figures.EditorTools
                 so.FindProperty("player").objectReferenceValue = player;
             });
 
+            var hotbarView = go.GetComponent<HotbarView>();
+            SetupAssets.Apply(hotbarView, so =>
+                so.FindProperty("font").objectReferenceValue = SetupAssets.EnsureFont());
+
+            // Комната собирается раньше витрины, и захвата у компьютера ещё нет: связь
+            // прописывается здесь, когда есть обе стороны.
+            if (terminal != null)
+                SetupAssets.Apply(terminal, so => so.FindProperty("grabber").objectReferenceValue = grabber);
+
             SetupAssets.Apply(go.GetComponent<FiguresBootstrap>(), so =>
             {
                 so.FindProperty("config").objectReferenceValue = root;
@@ -452,6 +482,7 @@ namespace Figures.EditorTools
                 so.FindProperty("grabber").objectReferenceValue = grabber;
                 so.FindProperty("player").objectReferenceValue = player;
                 so.FindProperty("terminal").objectReferenceValue = terminal;
+                so.FindProperty("hotbarView").objectReferenceValue = hotbarView;
 
                 var list = so.FindProperty("stands");
                 list.arraySize = stands.Count;

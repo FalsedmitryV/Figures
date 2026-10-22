@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using UnityEngine;
@@ -14,12 +15,17 @@ namespace Figures
     /// отпустили. За трансформ при этом спорить нельзя, поэтому телом и доводкой
     /// владеет один класс — этот: пока деталь ведут или доводят, тело кинематическое,
     /// и физика включается ровно в момент отпускания.
+    ///
+    /// Прикреплённая к другой детали своего тела не имеет: она висит в гнезде держателя,
+    /// а её коллайдеры входят в составное тело корня куска. Поэтому собранный вне
+    /// подставки кусок падает целиком, а не рассыпается.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class PartView : MonoBehaviour
     {
-        private Renderer[] _renderers;
+        private readonly List<Renderer> _renderers = new();
         private Collider[] _colliders;
+        private SocketView[] _ports = Array.Empty<SocketView>();
         private Rigidbody _body;
         private Color _baseTint = Color.white;
         private CancellationTokenSource _moveCts;
@@ -29,6 +35,12 @@ namespace Figures
         public PartSlotKind Kind { get; private set; }
 
         public string OwnerFigureId { get; private set; }
+
+        /// <summary>Цвет детали без подсветки: им ячейка показывает, что в ней лежит.</summary>
+        public Color Tint => _baseTint;
+
+        /// <summary>Гнёзда под детали, которые крепятся к этой.</summary>
+        public IReadOnlyList<SocketView> Ports => _ports;
 
         /// <summary>Поза на подносе: куда деталь возвращается, если её отпустили мимо гнезда.</summary>
         public Vector3 HomePosition { get; private set; }
@@ -42,12 +54,26 @@ namespace Figures
             OwnerFigureId = spec.OwnerFigureId;
             _baseTint = tint;
 
-            _renderers = GetComponentsInChildren<Renderer>(includeInactive: true);
-            _colliders = GetComponentsInChildren<Collider>(includeInactive: true);
-            _body = EnsureBody();
+            // Метки гнёзд — не тело детали: их красит гнездо, а не наведение.
+            _renderers.Clear();
+            foreach (var renderer in GetComponentsInChildren<Renderer>(includeInactive: true))
+                if (renderer.GetComponentInParent<SocketView>(includeInactive: true) == null)
+                    _renderers.Add(renderer);
 
-            GreyBoxBuilder.Tint(gameObject, tint);
+            _colliders = GetComponentsInChildren<Collider>(includeInactive: true);
+            _ports = GetComponentsInChildren<SocketView>(includeInactive: true);
+            foreach (var port in _ports) port.Holder = this;
+
+            EnsureBody();
+            foreach (var renderer in _renderers) GreyBoxBuilder.Tint(renderer, tint);
             MarkHome();
+        }
+
+        public SocketView Port(PartSlotKind kind, int index)
+        {
+            foreach (var port in _ports)
+                if (port.Kind == kind && port.Index == index) return port;
+            return null;
         }
 
         /// <summary>
@@ -57,7 +83,7 @@ namespace Figures
         public void Hold()
         {
             StopMove();
-            if (_body == null) return;
+            EnsureBody();
 
             _body.linearVelocity = Vector3.zero;
             _body.angularVelocity = Vector3.zero;
@@ -68,7 +94,7 @@ namespace Figures
         public void Drop()
         {
             StopMove();
-            if (_body == null) return;
+            EnsureBody();
 
             _body.isKinematic = false;
             _body.linearVelocity = Vector3.zero;
@@ -76,24 +102,29 @@ namespace Figures
             _body.WakeUp();
         }
 
-        private Rigidbody EnsureBody()
+        /// <summary>
+        /// Встать в гнездо держателя. Своё тело деталь отдаёт: дальше её несёт корень
+        /// куска, а её коллайдеры входят в его составное тело.
+        /// </summary>
+        public void AttachTo(Transform port, float duration)
         {
-            // Через TryGetComponent, а не GetComponent ?? AddComponent: отсутствующий
-            // компонент приходит из движка не настоящим null, `??` его не ловит, и
-            // первое же обращение валит спавн целиком на первой же детали.
-            if (!TryGetComponent(out Rigidbody body)) body = gameObject.AddComponent<Rigidbody>();
+            StopMove();
+            RemoveBody();
 
-            // Пока деталь лежит на подносе, физика ей не нужна: раскладка сетки
-            // детерминирована, и просыпаться двум десяткам тел незачем.
-            body.isKinematic = true;
-            body.interpolation = RigidbodyInterpolation.Interpolate;
-            body.linearDamping = 0.05f;
+            transform.SetParent(port, worldPositionStays: true);
+            MoveLocal(Vector3.zero, Quaternion.identity, duration, dropAtEnd: false);
+        }
 
-            // Шар головы и капсулы рук катались бы по столешнице до края: гашение
-            // вращения останавливает их там, куда их положили.
-            body.angularDamping = 4f;
+        /// <summary>
+        /// Корень куска: встать под parent в заданную позу. Кусок вне подставки после
+        /// доводки отпускается в физику, на подставке — остаётся неподвижным.
+        /// </summary>
+        public void SettleAt(Transform parent, Vector3 position, Quaternion rotation, float duration, bool anchored)
+        {
+            Hold();
 
-            return body;
+            transform.SetParent(parent, worldPositionStays: true);
+            MoveLocal(ToLocal(parent, position), ToLocal(parent, rotation), duration, dropAtEnd: !anchored);
         }
 
         /// <summary>Запомнить текущую позу как место на подносе.</summary>
@@ -105,8 +136,6 @@ namespace Figures
 
         public void SetHighlighted(bool on, float boost)
         {
-            if (_renderers == null) return;
-
             var color = on ? _baseTint * boost : _baseTint;
             color.a = _baseTint.a;
             foreach (var renderer in _renderers) GreyBoxBuilder.Tint(renderer, color);
@@ -121,16 +150,8 @@ namespace Figures
 
         public void SnapTo(Vector3 position, Quaternion rotation, float duration)
         {
-            StopMove();
-
-            if (duration <= 0f)
-            {
-                transform.SetPositionAndRotation(position, rotation);
-                return;
-            }
-
-            _moveCts = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
-            Glide(position, rotation, duration, _moveCts).Forget();
+            var parent = transform.parent;
+            MoveLocal(ToLocal(parent, position), ToLocal(parent, rotation), duration, dropAtEnd: false);
         }
 
         public void StopMove() => _moveCts?.Cancel();
@@ -143,26 +164,77 @@ namespace Figures
 
         private void OnDestroy() => StopMove();
 
-        private async UniTaskVoid Glide(Vector3 position, Quaternion rotation, float duration,
+        private void EnsureBody()
+        {
+            if (_body != null) return;
+
+            // Через TryGetComponent, а не GetComponent ?? AddComponent: отсутствующий
+            // компонент приходит из движка не настоящим null, `??` его не ловит, и
+            // первое же обращение валит спавн целиком на первой же детали.
+            if (!TryGetComponent(out _body)) _body = gameObject.AddComponent<Rigidbody>();
+
+            // Пока деталь лежит на подносе, физика ей не нужна: раскладка сетки
+            // детерминирована, и просыпаться двум десяткам тел незачем.
+            _body.isKinematic = true;
+            _body.interpolation = RigidbodyInterpolation.Interpolate;
+            _body.linearDamping = 0.05f;
+
+            // Шар головы и капсулы рук катались бы по столешнице до края: гашение
+            // вращения останавливает их там, куда их положили.
+            _body.angularDamping = 4f;
+        }
+
+        private void RemoveBody()
+        {
+            if (_body == null) return;
+
+            Destroy(_body);
+            _body = null;
+        }
+
+        private void MoveLocal(Vector3 position, Quaternion rotation, float duration, bool dropAtEnd)
+        {
+            StopMove();
+
+            if (duration <= 0f)
+            {
+                transform.SetLocalPositionAndRotation(position, rotation);
+                if (dropAtEnd) Drop();
+                return;
+            }
+
+            _moveCts = CancellationTokenSource.CreateLinkedTokenSource(destroyCancellationToken);
+            Glide(position, rotation, duration, dropAtEnd, _moveCts).Forget();
+        }
+
+        private static Vector3 ToLocal(Transform parent, Vector3 position) =>
+            parent != null ? parent.InverseTransformPoint(position) : position;
+
+        private static Quaternion ToLocal(Transform parent, Quaternion rotation) =>
+            parent != null ? Quaternion.Inverse(parent.rotation) * rotation : rotation;
+
+        private async UniTaskVoid Glide(Vector3 position, Quaternion rotation, float duration, bool dropAtEnd,
             CancellationTokenSource cts)
         {
             var token = cts.Token;
-            var fromPosition = transform.position;
-            var fromRotation = transform.rotation;
+            var fromPosition = transform.localPosition;
+            var fromRotation = transform.localRotation;
+            var arrived = false;
 
             try
             {
                 for (float elapsed = 0f; elapsed < duration; elapsed += Time.deltaTime)
                 {
                     var k = Mathf.SmoothStep(0f, 1f, elapsed / duration);
-                    transform.SetPositionAndRotation(
+                    transform.SetLocalPositionAndRotation(
                         Vector3.Lerp(fromPosition, position, k),
                         Quaternion.Slerp(fromRotation, rotation, k));
 
                     await UniTask.Yield(PlayerLoopTiming.Update, token);
                 }
 
-                transform.SetPositionAndRotation(position, rotation);
+                transform.SetLocalPositionAndRotation(position, rotation);
+                arrived = true;
             }
             catch (OperationCanceledException)
             {
@@ -172,6 +244,10 @@ namespace Figures
                 if (ReferenceEquals(_moveCts, cts)) _moveCts = null;
                 cts.Dispose();
             }
+
+            // В физику отпускается только доехавший кусок: отменённую доводку прервал
+            // новый хозяин трансформа.
+            if (arrived && dropAtEnd) Drop();
         }
     }
 }

@@ -25,7 +25,34 @@ namespace Figures
             public Vector3 Scale => scale;
         }
 
+        [Serializable]
+        public sealed class Port
+        {
+            [Tooltip("Деталь, на которой гнездо.")]
+            [SerializeField] private PartSlotKind holder;
+
+            [Tooltip("Деталь, которая в гнездо встаёт.")]
+            [SerializeField] private PartSlotKind kind;
+
+            [Tooltip("Номер среди гнёзд того же типа на держателе. Пара рук — 0 и 1.")]
+            [Min(0)][SerializeField] private int index;
+
+            [Tooltip("Где центр вставленной детали относительно центра держателя, юниты.")]
+            [SerializeField] private Vector3 offset;
+
+            public PartSlotKind Holder => holder;
+
+            public PartSlotKind Kind => kind;
+
+            public int Index => index;
+
+            public Vector3 Offset => offset;
+        }
+
         [SerializeField] private List<Shape> shapes = new();
+
+        [Tooltip("Гнёзда на деталях-заглушках: куда крепятся другие детали.")]
+        [SerializeField] private List<Port> ports = new();
 
         [Tooltip("Для типов, которых нет в списке.")]
         [SerializeField] private PrimitiveType fallbackPrimitive = PrimitiveType.Cube;
@@ -36,6 +63,7 @@ namespace Figures
         [SerializeField] private Material material;
 
         public Material Material => material;
+        public IReadOnlyList<Port> Ports => ports;
 
         public PrimitiveType PrimitiveOf(PartSlotKind kind) => Find(kind)?.Primitive ?? fallbackPrimitive;
 

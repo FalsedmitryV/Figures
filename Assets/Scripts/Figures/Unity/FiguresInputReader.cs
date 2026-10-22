@@ -20,17 +20,22 @@ namespace Figures
         private const string GrabActionName = "Click";
         private const string InspectActionName = "RightClick";
         private const string ZoomActionName = "ScrollWheel";
+        private const string StashActionName = "Interact";
 
         [Tooltip("Ассет со всеми привязками. Пусто — ввода не будет.")]
         [SerializeField] private InputActionAsset actions;
 
         [SerializeField] private string actionMapName = "UI";
 
+        [Tooltip("Карта, из которой берётся действие «убрать в ячейку / достать».")]
+        [SerializeField] private string stashMapName = "Player";
+
         private InputActionMap _map;
         private InputAction _point;
         private InputAction _grab;
         private InputAction _inspect;
         private InputAction _zoom;
+        private InputAction _stash;
 
         private Vector2 _lastPointer;
         private bool _hasLastPointer;
@@ -56,9 +61,16 @@ namespace Figures
             _grab = _map.FindAction(GrabActionName, false);
             _inspect = _map.FindAction(InspectActionName, false);
             _zoom = _map.FindAction(ZoomActionName, false);
+            _stash = actions.FindActionMap(stashMapName, false)?.FindAction(StashActionName, false);
         }
 
-        private void OnEnable() => _map?.Enable();
+        // Чужое действие только включается, но не выключается: карта Player принадлежит
+        // игроку, и выключенный захват отнял бы у него E у компьютера.
+        private void OnEnable()
+        {
+            _map?.Enable();
+            _stash?.Enable();
+        }
 
         private void OnDisable()
         {
@@ -94,7 +106,8 @@ namespace Figures
                 _grab?.IsPressed() ?? false,
                 _grab?.WasReleasedThisFrame() ?? false,
                 _inspect?.IsPressed() ?? false,
-                (_zoom?.ReadValue<Vector2>() ?? Vector2.zero).y);
+                (_zoom?.ReadValue<Vector2>() ?? Vector2.zero).y,
+                _stash?.WasPressedThisFrame() ?? false);
         }
     }
 }

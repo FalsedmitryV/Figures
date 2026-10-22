@@ -29,6 +29,9 @@ namespace Figures
         [Tooltip("Кому отдавать курсор и у кого отнимать ход, пока игрок за компьютером.")]
         [SerializeField] private FirstPersonPlayer player;
 
+        [Tooltip("Необязательно. С деталью в руке E убирает её в ячейку, а не включает компьютер.")]
+        [SerializeField] private PartGrabber grabber;
+
         [Tooltip("С какого расстояния компьютер включается, метры.")]
         [Min(0.5f)][SerializeField] private float range = 1.9f;
 
@@ -106,8 +109,10 @@ namespace Figures
                 return;
             }
 
-            if (frame.InteractPressed && IsNear) Open();
+            if (frame.InteractPressed && IsNear && !HandsBusy) Open();
         }
+
+        private bool HandsBusy => grabber != null && grabber.HasHeld;
 
         private bool IsNear
         {

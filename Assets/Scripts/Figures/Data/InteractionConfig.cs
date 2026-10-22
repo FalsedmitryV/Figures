@@ -42,6 +42,10 @@ namespace Figures
                  "Снять — вернётся на своё место на подносе.")]
         [SerializeField] private bool dropOnRelease = true;
 
+        [Header("Инвентарь")]
+        [Tooltip("Сколько ячеек внизу экрана.")]
+        [Min(1)][SerializeField] private int hotbarSlots = 6;
+
         [Header("Осмотр")]
         [Tooltip("Стартовая дистанция от камеры при осмотре, юниты.")]
         [Min(0.05f)][SerializeField] private float inspectDistance = 0.45f;
@@ -65,6 +69,7 @@ namespace Figures
         public LayerMask SurfaceLayers => surfaceLayers;
         public float ReachDistance => reachDistance;
         public bool DropOnRelease => dropOnRelease;
+        public int HotbarSlots => hotbarSlots;
         public float CarryLift => carryLift;
         public float CarryFallbackDistance => carryFallbackDistance;
         public float SnapRadius => snapRadius;

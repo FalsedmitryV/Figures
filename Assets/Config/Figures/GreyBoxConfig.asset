@@ -34,6 +34,39 @@ MonoBehaviour:
   - kind: 5
     primitive: 1
     scale: {x: 0.032, y: 0.032, z: 0.032}
+  ports:
+  - holder: 6
+    kind: 5
+    index: 0
+    offset: {x: -0.025, y: -0.052, z: 0}
+  - holder: 6
+    kind: 5
+    index: 1
+    offset: {x: 0.025, y: -0.052, z: 0}
+  - holder: 6
+    kind: 3
+    index: 0
+    offset: {x: 0, y: 0.055, z: 0}
+  - holder: 3
+    kind: 4
+    index: 0
+    offset: {x: -0.06, y: 0.011, z: 0}
+  - holder: 3
+    kind: 4
+    index: 1
+    offset: {x: 0.06, y: 0.011, z: 0}
+  - holder: 3
+    kind: 0
+    index: 0
+    offset: {x: 0, y: 0.075, z: 0}
+  - holder: 0
+    kind: 2
+    index: 0
+    offset: {x: 0, y: 0, z: 0.04}
+  - holder: 0
+    kind: 1
+    index: 0
+    offset: {x: 0, y: 0.033, z: 0}
   fallbackPrimitive: 3
   fallbackScale: {x: 0.08, y: 0.08, z: 0.08}
   material: {fileID: 0}
