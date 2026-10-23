@@ -69,6 +69,19 @@ namespace Figures
             MarkHome();
         }
 
+        /// <summary>Видимый объём детали без меток гнёзд: по нему камера решает, попала ли деталь в кадр.</summary>
+        public Bounds Bounds
+        {
+            get
+            {
+                if (_renderers.Count == 0) return new Bounds(transform.position, Vector3.zero);
+
+                var bounds = _renderers[0].bounds;
+                for (int i = 1; i < _renderers.Count; i++) bounds.Encapsulate(_renderers[i].bounds);
+                return bounds;
+            }
+        }
+
         public SocketView Port(PartSlotKind kind, int index)
         {
             foreach (var port in _ports)

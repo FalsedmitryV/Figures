@@ -25,6 +25,7 @@ namespace Figures
             Wallet = new Wallet(Settings.StartBalance);
             Inventory = new PartInventory();
             Feed = new PhotoFeed(Settings.Rates);
+            Album = new PhotoAlbum(Settings.AlbumCapacity);
             Shop = new PartBoxShop(catalog, Inventory, Settings.Offers, Settings.Seed);
 
             Starter = GiveStarterParts(Settings.StarterPartCount);
@@ -44,6 +45,9 @@ namespace Figures
         public PartBoxShop Shop { get; }
 
         public PhotoFeed Feed { get; }
+
+        /// <summary>Снимки камеры, которые ещё можно выложить или удалить.</summary>
+        public PhotoAlbum Album { get; }
 
         /// <summary>Стартовый набор: он уже на складе, но виду нужно знать, что выложить.</summary>
         public BoxDelivery Starter { get; }
@@ -84,6 +88,20 @@ namespace Figures
 
             PhotoPublished?.Invoke(post);
             return post;
+        }
+
+        /// <summary>
+        /// Выложить снимок из альбома. Выплата считается в момент выкладки, а не съёмки:
+        /// планка лучшего фото к этому времени могла подняться.
+        /// </summary>
+        public bool TryPublish(int photoId, out PhotoPost post)
+        {
+            post = PhotoPost.None;
+            if (!Album.TryGet(photoId, out var photo) || photo.IsPublished) return false;
+
+            post = Publish(photo.Shot);
+            Album.MarkPublished(photo, post);
+            return true;
         }
 
         /// <summary>Цена по факту: за неполную коробку платят пропорционально.</summary>

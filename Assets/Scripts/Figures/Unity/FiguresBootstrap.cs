@@ -31,10 +31,15 @@ namespace Figures
         [Tooltip("Необязательно. Пусто — ячейки работают, но на экране их не видно.")]
         [SerializeField] private HotbarView hotbarView;
 
+        [Tooltip("Необязательно. Пусто или выключена — фото публикуется кнопкой терминала, по всей витрине.")]
+        [SerializeField] private PhotoCamera photoCamera;
+
         [Tooltip("Пусто — подставки соберутся со сцены по компоненту.")]
         [SerializeField] private List<FigureStandView> stands = new();
 
         private readonly StringBuilder _report = new();
+
+        private PhotoPrints _prints;
 
         public AssemblyBoard Board { get; private set; }
 
@@ -88,7 +93,14 @@ namespace Figures
                 grabber.Bind(Board, config.Interaction, stands, spawner?.Spawned, spawner?.Tray, Hotbar);
             if (hotbarView != null) hotbarView.Bind(Hotbar, grabber != null ? grabber.ViewOf : null);
             if (status != null) status.Bind(Board);
-            if (terminal != null) terminal.Bind(Studio, Board);
+            var cameraShots = photoCamera != null && photoCamera.CanShoot;
+            if (cameraShots)
+            {
+                _prints = new PhotoPrints(Studio.Album);
+                photoCamera.Bind(Studio, Board, spawner?.Spawned, _prints);
+            }
+
+            if (terminal != null) terminal.Bind(Studio, Board, cameraShots, _prints);
 
             DevLog.Info($"[Figures] Собрано ядро: фигурок {Board.Figures.Count}, гнёзд {Board.SlotTotal}, " +
                         $"на складе деталей {Studio.Inventory.Count}, на счету {Studio.Wallet.Balance}.");
@@ -98,6 +110,7 @@ namespace Figures
         {
             if (Board != null) Board.Changed -= OnBoardChanged;
             if (Studio != null) Studio.BoxDelivered -= OnBoxDelivered;
+            _prints?.Dispose();
         }
 
         /// <summary>

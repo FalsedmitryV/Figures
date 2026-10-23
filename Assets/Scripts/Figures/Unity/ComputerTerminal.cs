@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using System.Text;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Events;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
@@ -8,7 +10,8 @@ using UnityEngine.UI;
 namespace Figures
 {
     /// <summary>
-    /// Компьютер в комнате: заказ коробок с деталями и публикация фото коллекции.
+    /// Компьютер в комнате: заказ коробок с деталями и фотоальбом — снимки камеры
+    /// выкладываются и удаляются здесь.
     /// Экран — такой же грейбокс, как и всё остальное: собирается кодом при связке и
     /// словами рассказывает, что делает каждая кнопка. Проверять надо сам цикл, а не
     /// его оформление.
@@ -24,12 +27,20 @@ namespace Figures
         private const float PanelWidth = 860f;
         private const float Padding = 28f;
 
+        private const int AlbumColumns = 4;
+        private const float CellGap = 12f;
+        private const float CellInset = 6f;
+        private const float ThumbHeight = 140f;
+        private const float InfoHeight = 50f;
+        private const float CellButtonHeight = 32f;
+        private const float CellHeight = ThumbHeight + InfoHeight + CellButtonHeight + CellInset * 4f;
+
         [SerializeField] private PlayerInputReader input;
 
         [Tooltip("Кому отдавать курсор и у кого отнимать ход, пока игрок за компьютером.")]
         [SerializeField] private FirstPersonPlayer player;
 
-        [Tooltip("Необязательно. С деталью в руке E убирает её в ячейку, а не включает компьютер.")]
+        [Tooltip("Необязательно. Пока в руках деталь или кусок, компьютер не включается.")]
         [SerializeField] private PartGrabber grabber;
 
         [Tooltip("С какого расстояния компьютер включается, метры.")]
@@ -39,6 +50,7 @@ namespace Figures
         [SerializeField] private TMP_FontAsset font;
 
         private readonly StringBuilder _text = new();
+        private readonly List<AlbumCell> _cells = new();
 
         private CollectionStudio _studio;
         private AssemblyBoard _board;
@@ -47,10 +59,18 @@ namespace Figures
         private TextMeshProUGUI _state;
         private TextMeshProUGUI _photo;
         private TextMeshProUGUI _status;
+        private TextMeshProUGUI _albumButton;
+
+        private GameObject _main;
+        private GameObject _albumPage;
+        private TextMeshProUGUI _albumInfo;
+        private TextMeshProUGUI _albumStatus;
+        private PhotoPrints _prints;
 
         private float _cursor;
         private bool _open;
         private bool _dirty;
+        private bool _cameraShots;
 
         public bool IsOpen => _open;
 
@@ -60,16 +80,24 @@ namespace Figures
         ///
         /// Экран собирается здесь, а не в Awake: его содержимое — это коробки из
         /// магазина, и до связки их список неизвестен.
+        ///
+        /// cameraShots — фото снимает <see cref="PhotoCamera"/>, и вместо кнопки публикации
+        /// на экране фотоальбом: снимки камеры выкладываются и удаляются в нём. Кнопка
+        /// платила бы за всю витрину мимо кадра. prints — картинки этих снимков.
         /// </summary>
-        public void Bind(CollectionStudio studio, AssemblyBoard board)
+        public void Bind(CollectionStudio studio, AssemblyBoard board, bool cameraShots = false,
+            PhotoPrints prints = null)
         {
             _studio = studio;
             _board = board;
+            _cameraShots = cameraShots;
+            _prints = prints;
 
             if (_studio != null)
             {
                 _studio.Wallet.Changed += MarkDirty;
                 _studio.Inventory.Changed += MarkDirty;
+                _studio.Album.Changed += MarkDirty;
             }
 
             if (_board != null) _board.Changed += MarkDirty;
@@ -85,6 +113,7 @@ namespace Figures
             {
                 _studio.Wallet.Changed -= MarkDirty;
                 _studio.Inventory.Changed -= MarkDirty;
+                _studio.Album.Changed -= MarkDirty;
             }
 
             if (_board != null) _board.Changed -= MarkDirty;
@@ -112,7 +141,7 @@ namespace Figures
             if (frame.InteractPressed && IsNear && !HandsBusy) Open();
         }
 
-        private bool HandsBusy => grabber != null && grabber.HasHeld;
+        private bool HandsBusy => grabber != null && grabber.HandsBusy;
 
         private bool IsNear
         {
@@ -138,6 +167,17 @@ namespace Figures
             _open = true;
             _screen.SetActive(true);
             if (player != null) player.SetUiMode(true);
+
+            ShowAlbum(false);
+        }
+
+        private void ShowAlbum(bool on)
+        {
+            if (_albumPage == null) on = false;
+
+            _main.SetActive(!on);
+            if (_albumPage != null) _albumPage.SetActive(on);
+            if (on) _albumStatus.text = string.Empty;
 
             Refresh();
         }
@@ -187,6 +227,38 @@ namespace Figures
             Refresh();
         }
 
+        private void OnPublishAlbumPhoto(int cell)
+        {
+            var photos = _studio.Album.Photos;
+            if (cell >= photos.Count) return;
+
+            var id = photos[cell].Id;
+            if (!_studio.TryPublish(id, out var post))
+            {
+                _albumStatus.text = $"Снимок №{id} уже выложен.";
+                return;
+            }
+
+            _albumStatus.text = post.IsRepeat
+                ? $"№{id}: {post.Likes} лайков — не лучше прежнего фото ({_studio.Feed.BestLikes}). " +
+                  "За повтор не платят."
+                : $"№{id}: +{post.Likes} лайков, прирост {post.Gain} — на счёт {post.Payout} монет.";
+
+            Refresh();
+        }
+
+        private void OnDeleteAlbumPhoto(int cell)
+        {
+            var photos = _studio.Album.Photos;
+            if (cell >= photos.Count) return;
+
+            var id = photos[cell].Id;
+            _studio.Album.Remove(id);
+            _albumStatus.text = $"Снимок №{id} удалён.";
+
+            Refresh();
+        }
+
         // =====================================================================
         // ЭКРАН
         // =====================================================================
@@ -210,9 +282,45 @@ namespace Figures
                              $"+{rates.PerPlacedPart}, чужая деталь −{rates.PerMistake}.");
             _text.AppendLine($"На витрине: собрано {shot.Assembled}, деталей {shot.PartsPlaced}, " +
                              $"чужих {shot.Mistakes}.");
-            _text.Append($"Это {_studio.Feed.LikesOf(shot)} лайков; лучшее фото — {_studio.Feed.BestLikes}, " +
+            _text.Append(_cameraShots ? "Вся витрина в одном кадре — это " : "Это ");
+            _text.Append($"{_studio.Feed.LikesOf(shot)} лайков; лучшее фото — {_studio.Feed.BestLikes}, " +
                          $"заплатят {_studio.Feed.PayoutOf(shot)} монет.");
             _photo.text = _text.ToString();
+
+            if (_cameraShots) RefreshAlbum();
+        }
+
+        private void RefreshAlbum()
+        {
+            var album = _studio.Album;
+            _albumButton.text = $"Фотоальбом — {album.Count} из {album.Capacity} снимков";
+
+            _text.Clear();
+            _text.Append($"Баланс: {_studio.Wallet.Balance} монет. Лучшее выложенное фото — " +
+                         $"{_studio.Feed.BestLikes} лайков. Платят только за прирост над ним: выкладывай " +
+                         "сначала самый сильный кадр, слабые и повторы удаляй.");
+            if (album.Count == 0) _text.Append(" Альбом пуст — сними витрину камерой (F).");
+            _albumInfo.text = _text.ToString();
+
+            for (int i = 0; i < _cells.Count; i++)
+            {
+                var cell = _cells[i];
+                var filled = i < album.Count;
+                cell.Root.SetActive(filled);
+                if (!filled) continue;
+
+                var photo = album.Photos[i];
+                var print = _prints?.Of(photo.Id);
+                cell.Print.texture = print;
+                cell.Print.color = print != null ? Color.white : new Color(0.25f, 0.27f, 0.32f);
+                if (print != null) cell.Fit.aspectRatio = (float)print.width / print.height;
+
+                cell.Info.text = photo.IsPublished
+                    ? $"№{photo.Id} — выложен: {photo.Post.Likes} лайков, принёс {photo.Post.Payout} монет."
+                    : $"№{photo.Id} — {_studio.Feed.LikesOf(photo.Shot)} лайков; выложить сейчас — " +
+                      $"{_studio.Feed.PayoutOf(photo.Shot)} монет.";
+                cell.Publish.interactable = !photo.IsPublished;
+            }
         }
 
         private GameObject Build()
@@ -231,6 +339,7 @@ namespace Figures
             scaler.matchWidthOrHeight = 0.5f;
 
             var panel = Panel(canvasGo.transform);
+            _main = panel.gameObject;
 
             // Ряды выкладываются сверху вниз вручную: группы компоновки здесь дали бы
             // зависимость от порядка проходов, а экран собирается один раз и его
@@ -251,20 +360,121 @@ namespace Figures
                     panel, () => OnOrderBox(id));
             }
 
-            Label("ФОТО КОЛЛЕКЦИИ — витрина уходит в интернет, лайки превращаются в деньги. " +
-                  "Платят только за прирост над лучшим прежним фото, поэтому жать повторно бессмысленно.",
+            Label(_cameraShots
+                    ? "ФОТО КОЛЛЕКЦИИ — снимай фотокамерой: F поднимает видоискатель, ЛКМ снимает. " +
+                      "Лайки идут только за то, что попало в кадр, и только за прирост над лучшим фото."
+                    : "ФОТО КОЛЛЕКЦИИ — витрина уходит в интернет, лайки превращаются в деньги. " +
+                      "Платят только за прирост над лучшим прежним фото, поэтому жать повторно бессмысленно.",
                 panel, 18f, new Color(0.72f, 0.74f, 0.8f), 66f);
 
             _photo = Label(string.Empty, panel, 20f, Color.white, 84f);
-            Button("Опубликовать фото коллекции", panel, OnPublishPhoto);
+            if (_cameraShots) _albumButton = Button(string.Empty, panel, () => ShowAlbum(true));
+            else Button("Опубликовать фото коллекции", panel, OnPublishPhoto);
 
             _status = Label(string.Empty, panel, 20f, new Color(1f, 0.92f, 0.6f), 56f);
             Label("E или Esc — выйти из терминала.", panel, 16f, new Color(0.6f, 0.62f, 0.68f), 22f);
 
             panel.sizeDelta = new Vector2(PanelWidth, _cursor + Padding);
 
+            if (_cameraShots) _albumPage = BuildAlbum(canvasGo.transform);
+
             EnsureEventSystem();
             return canvasGo;
+        }
+
+        /// <summary>
+        /// Вторая страница экрана. Ячеек ровно по вместимости альбома, и строятся они один
+        /// раз: снимки только заполняют их, поэтому экран не пересобирается от снимка к снимку.
+        /// </summary>
+        private GameObject BuildAlbum(Transform parent)
+        {
+            var panel = Panel(parent);
+            panel.name = "Album";
+            _cursor = Padding;
+
+            Label("ФОТОАЛЬБОМ", panel, 30f, new Color(0.95f, 0.95f, 1f), 40f);
+            _albumInfo = Label(string.Empty, panel, 18f, new Color(0.72f, 0.74f, 0.8f), 70f);
+
+            var capacity = _studio.Album.Capacity;
+            var rows = (capacity + AlbumColumns - 1) / AlbumColumns;
+            var grid = Row("Grid", panel, rows * CellHeight + (rows - 1) * CellGap, typeof(RectTransform));
+
+            _cells.Clear();
+            for (int i = 0; i < capacity; i++) _cells.Add(Cell(grid, i));
+
+            _albumStatus = Label(string.Empty, panel, 20f, new Color(1f, 0.92f, 0.6f), 56f);
+            Button("Назад к терминалу", panel, () => ShowAlbum(false));
+            Label("E или Esc — выйти из терминала.", panel, 16f, new Color(0.6f, 0.62f, 0.68f), 22f);
+
+            panel.sizeDelta = new Vector2(PanelWidth, _cursor + Padding);
+            panel.gameObject.SetActive(false);
+            return panel.gameObject;
+        }
+
+        private AlbumCell Cell(RectTransform grid, int index)
+        {
+            var top = index / AlbumColumns * (CellHeight + CellGap);
+            var column = index % AlbumColumns;
+
+            var root = Child($"Photo {index}", grid,
+                new Vector2((float)column / AlbumColumns, 1f), new Vector2((float)(column + 1) / AlbumColumns, 1f),
+                new Vector2(CellGap * 0.5f, -(top + CellHeight)), new Vector2(-CellGap * 0.5f, -top),
+                typeof(Image));
+            Tint(root, new Color(0.14f, 0.16f, 0.21f, 1f));
+
+            var frame = Child("Frame", root, new Vector2(0f, 1f), Vector2.one,
+                new Vector2(CellInset, -(CellInset + ThumbHeight)), new Vector2(-CellInset, -CellInset),
+                typeof(Image));
+            Tint(frame, Color.black);
+
+            var print = Child("Print", frame, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero,
+                typeof(RawImage), typeof(AspectRatioFitter));
+            var image = print.GetComponent<RawImage>();
+            image.raycastTarget = false;
+            var fit = print.GetComponent<AspectRatioFitter>();
+            fit.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+
+            var infoTop = CellInset * 2f + ThumbHeight;
+            var info = Child("Info", root, new Vector2(0f, 1f), Vector2.one,
+                new Vector2(CellInset + 2f, -(infoTop + InfoHeight)), new Vector2(-CellInset - 2f, -infoTop),
+                typeof(TextMeshProUGUI)).GetComponent<TextMeshProUGUI>();
+            if (font != null) info.font = font;
+            info.fontSize = 15f;
+            info.color = Color.white;
+            info.raycastTarget = false;
+
+            var cell = index;
+            var publish = Press(Child("Publish", root, Vector2.zero, new Vector2(0.5f, 0f),
+                    new Vector2(CellInset, CellInset), new Vector2(-CellInset * 0.5f, CellInset + CellButtonHeight),
+                    typeof(Image), typeof(Button)),
+                "Выложить", () => OnPublishAlbumPhoto(cell), 16f);
+            Press(Child("Delete", root, new Vector2(0.5f, 0f), new Vector2(1f, 0f),
+                    new Vector2(CellInset * 0.5f, CellInset), new Vector2(-CellInset, CellInset + CellButtonHeight),
+                    typeof(Image), typeof(Button)),
+                "Удалить", () => OnDeleteAlbumPhoto(cell), 16f);
+
+            return new AlbumCell(root.gameObject, image, fit, info, publish);
+        }
+
+        private static RectTransform Child(string name, Transform parent, Vector2 anchorMin, Vector2 anchorMax,
+            Vector2 offsetMin, Vector2 offsetMax, params System.Type[] parts)
+        {
+            var go = new GameObject(name, parts);
+            go.transform.SetParent(parent, false);
+
+            var rect = go.GetComponent<RectTransform>();
+            rect.anchorMin = anchorMin;
+            rect.anchorMax = anchorMax;
+            rect.offsetMin = offsetMin;
+            rect.offsetMax = offsetMax;
+            return rect;
+        }
+
+        private static void Tint(RectTransform rect, Color color)
+        {
+            var image = rect.GetComponent<Image>();
+            image.color = color;
+            image.raycastTarget = false;
         }
 
         private static RectTransform Panel(Transform parent)
@@ -312,10 +522,15 @@ namespace Figures
             return label;
         }
 
-        private void Button(string text, Transform parent, UnityEngine.Events.UnityAction action)
+        private TextMeshProUGUI Button(string text, Transform parent, UnityAction action)
         {
             var rect = Row("Button", parent, 46f, typeof(Image), typeof(Button));
+            return Press(rect, text, action, 20f).GetComponentInChildren<TextMeshProUGUI>();
+        }
 
+        /// <summary>Прямоугольник с картинкой и кнопкой становится кнопкой с подписью.</summary>
+        private Button Press(RectTransform rect, string text, UnityAction action, float size)
+        {
             var image = rect.GetComponent<Image>();
             image.color = new Color(0.2f, 0.24f, 0.32f, 1f);
 
@@ -329,7 +544,7 @@ namespace Figures
             var label = labelGo.GetComponent<TextMeshProUGUI>();
             if (font != null) label.font = font;
             label.text = text;
-            label.fontSize = 20f;
+            label.fontSize = size;
             label.color = Color.white;
             label.alignment = TextAlignmentOptions.Center;
             label.raycastTarget = false;
@@ -339,6 +554,8 @@ namespace Figures
             labelRect.anchorMax = Vector2.one;
             labelRect.offsetMin = new Vector2(14f, 0f);
             labelRect.offsetMax = new Vector2(-14f, 0f);
+
+            return button;
         }
 
         /// <summary>
@@ -352,6 +569,26 @@ namespace Figures
 
             var go = new GameObject("EventSystem", typeof(EventSystem), typeof(InputSystemUIInputModule));
             go.GetComponent<InputSystemUIInputModule>().AssignDefaultActions();
+        }
+
+        /// <summary>Ячейка альбома: строится один раз, снимок только заполняет её.</summary>
+        private sealed class AlbumCell
+        {
+            public readonly GameObject Root;
+            public readonly RawImage Print;
+            public readonly AspectRatioFitter Fit;
+            public readonly TextMeshProUGUI Info;
+            public readonly Button Publish;
+
+            public AlbumCell(GameObject root, RawImage print, AspectRatioFitter fit, TextMeshProUGUI info,
+                Button publish)
+            {
+                Root = root;
+                Print = print;
+                Fit = fit;
+                Info = info;
+                Publish = publish;
+            }
         }
     }
 }

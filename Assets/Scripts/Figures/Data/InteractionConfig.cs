@@ -58,12 +58,6 @@ namespace Figures
         [Tooltip("Градусов на пиксель смещения указателя.")]
         [Min(0f)][SerializeField] private float inspectRotateSpeed = 0.35f;
 
-        [Tooltip("Скорость подноса детали к куску в руках, юниты на пиксель смещения указателя.")]
-        [Min(0f)][SerializeField] private float fitSpeed = 0.0006f;
-
-        [Tooltip("Насколько далеко деталь уводится от куска в руках, юниты.")]
-        [Min(0.01f)][SerializeField] private float fitRange = 0.2f;
-
         [Header("Подсветка")]
         [Tooltip("Множитель яркости детали под курсором.")]
         [Min(1f)][SerializeField] private float hoverBoost = 1.35f;
@@ -85,8 +79,6 @@ namespace Figures
         public Vector2 InspectZoomRange => inspectZoomRange;
         public float InspectZoomSpeed => inspectZoomSpeed;
         public float InspectRotateSpeed => inspectRotateSpeed;
-        public float FitSpeed => fitSpeed;
-        public float FitRange => fitRange;
         public float HoverBoost => hoverBoost;
         public Color SocketReadyColor => socketReadyColor;
     }

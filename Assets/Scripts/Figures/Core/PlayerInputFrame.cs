@@ -29,9 +29,12 @@ namespace Figures
         /// <summary>Отмена: курсор отпускается.</summary>
         public readonly bool CancelPressed;
 
+        /// <summary>Поднять или опустить фотокамеру.</summary>
+        public readonly bool PhotoPressed;
+
         public PlayerInputFrame(Vector2 move, Vector2 look, bool lookIsDelta, bool sprintHeld,
             bool crouchHeld, bool crouchPressed, bool jumpPressed, bool interactPressed,
-            bool pointerPressed, bool cancelPressed)
+            bool pointerPressed, bool cancelPressed, bool photoPressed)
         {
             Move = move;
             Look = look;
@@ -43,6 +46,7 @@ namespace Figures
             InteractPressed = interactPressed;
             PointerPressed = pointerPressed;
             CancelPressed = cancelPressed;
+            PhotoPressed = photoPressed;
         }
 
         public static PlayerInputFrame None => default;
@@ -50,7 +54,7 @@ namespace Figures
         /// <summary>Тот же кадр без обзора и действий: курсор отпущен, ходить нельзя.</summary>
         public PlayerInputFrame WithoutControl() =>
             new(Vector2.zero, Vector2.zero, LookIsDelta, false, CrouchHeld, false, false, false,
-                PointerPressed, CancelPressed);
+                PointerPressed, CancelPressed, PhotoPressed);
 
         /// <summary>
         /// Тот же кадр без обзора: ходить можно, головой не вертеть. Нужен, когда мышь
@@ -58,6 +62,6 @@ namespace Figures
         /// </summary>
         public PlayerInputFrame WithoutLook() =>
             new(Move, Vector2.zero, LookIsDelta, SprintHeld, CrouchHeld, CrouchPressed, JumpPressed,
-                InteractPressed, PointerPressed, CancelPressed);
+                InteractPressed, PointerPressed, CancelPressed, PhotoPressed);
     }
 }

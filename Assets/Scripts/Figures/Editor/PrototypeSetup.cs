@@ -64,14 +64,15 @@ namespace Figures.EditorTools
 
         // Гнёзда на деталях: где центр вставленной детали относительно центра держателя.
         // Числа — разности центров прежней раскладки на подставке (таз 0.084, торс 0.139,
-        // руки 0.15, голова 0.214, причёска 0.247), поэтому собранная фигурка стоит так же.
+        // голова 0.214, причёска 0.247), поэтому собранная фигурка стоит так же. Руки
+        // подогнаны под тонкую капсулу: вплотную к боку торса и вровень с ним по высоте.
         private static readonly (PartSlotKind holder, PartSlotKind kind, int index, Vector3 offset)[] PortLayout =
         {
             (PartSlotKind.Pelvis, PartSlotKind.Leg, 0, new Vector3(-0.025f, -0.052f, 0f)),
             (PartSlotKind.Pelvis, PartSlotKind.Leg, 1, new Vector3(0.025f, -0.052f, 0f)),
             (PartSlotKind.Pelvis, PartSlotKind.Torso, 0, new Vector3(0f, 0.055f, 0f)),
-            (PartSlotKind.Torso, PartSlotKind.Arm, 0, new Vector3(-0.06f, 0.011f, 0f)),
-            (PartSlotKind.Torso, PartSlotKind.Arm, 1, new Vector3(0.06f, 0.011f, 0f)),
+            (PartSlotKind.Torso, PartSlotKind.Arm, 0, new Vector3(-0.056f, 0f, 0f)),
+            (PartSlotKind.Torso, PartSlotKind.Arm, 1, new Vector3(0.056f, 0f, 0f)),
             (PartSlotKind.Torso, PartSlotKind.Head, 0, new Vector3(0f, 0.075f, 0f)),
             (PartSlotKind.Head, PartSlotKind.Face, 0, new Vector3(0f, 0f, 0.04f)),
             (PartSlotKind.Head, PartSlotKind.Hair, 0, new Vector3(0f, 0.033f, 0f))
@@ -84,8 +85,12 @@ namespace Figures.EditorTools
             { PartSlotKind.Face, (PrimitiveType.Cube, new Vector3(0.055f, 0.045f, 0.012f)) },
             { PartSlotKind.Torso, (PrimitiveType.Cube, new Vector3(0.09f, 0.07f, 0.06f)) },
             { PartSlotKind.Pelvis, (PrimitiveType.Cube, new Vector3(0.075f, 0.04f, 0.055f)) },
-            { PartSlotKind.Arm, (PrimitiveType.Capsule, new Vector3(0.028f, 0.033f, 0.028f)) },
-            { PartSlotKind.Leg, (PrimitiveType.Capsule, new Vector3(0.032f, 0.032f, 0.032f)) }
+
+            // Рука и нога не должны путаться по силуэту: рука — тонкая круглая капсула,
+            // нога — плоский брусок с торцом, глубже, чем шире. Высота ноги прежняя:
+            // на ней держатся гнездо подставки (0.032) и низ таза.
+            { PartSlotKind.Arm, (PrimitiveType.Capsule, new Vector3(0.022f, 0.036f, 0.022f)) },
+            { PartSlotKind.Leg, (PrimitiveType.Cube, new Vector3(0.026f, 0.064f, 0.042f)) }
         };
 
         // Коробки магазина: цена против содержимого. Малая берётся «добить» один тип,
@@ -146,6 +151,7 @@ namespace Figures.EditorTools
                 so.FindProperty("likesPerPlacedPart").intValue = 12;
                 so.FindProperty("likesPerMistake").intValue = 20;
                 so.FindProperty("coinsPerLike").floatValue = 1.5f;
+                so.FindProperty("albumCapacity").intValue = 8;
                 so.FindProperty("useInventory").boolValue = true;
 
                 var list = so.FindProperty("boxes");
@@ -215,11 +221,6 @@ namespace Figures.EditorTools
                 so.FindProperty("inspectDistance").floatValue = 0.3f;
                 so.FindProperty("inspectZoomRange").vector2Value = new Vector2(0.14f, 0.5f);
                 so.FindProperty("inspectRotateSpeed").floatValue = 0.4f;
-
-                // Деталь должна обходить кусок целиком за полэкрана мыши: fitRange —
-                // чуть больше роста фигурки (0.25), скорость под это и подобрана.
-                so.FindProperty("fitSpeed").floatValue = 0.0006f;
-                so.FindProperty("fitRange").floatValue = 0.2f;
 
                 // Дотянуться можно до стола, а не через комнату: игрок больше не сидит
                 // перед витриной, он к ней подходит.
@@ -475,6 +476,23 @@ namespace Figures.EditorTools
             SetupAssets.Apply(hotbarView, so =>
                 so.FindProperty("font").objectReferenceValue = SetupAssets.EnsureFont());
 
+            // Фотокамере нужен ввод игрока: без него снимать нечем, и фото остаётся за
+            // кнопкой терминала.
+            var photoCamera = player != null ? go.AddComponent<PhotoCamera>() : null;
+            if (photoCamera != null)
+            {
+                SetupAssets.Apply(photoCamera, so =>
+                {
+                    so.FindProperty("input").objectReferenceValue = player.GetComponent<PlayerInputReader>();
+                    so.FindProperty("pointer").objectReferenceValue = reader;
+                    so.FindProperty("grabber").objectReferenceValue = grabber;
+                    so.FindProperty("player").objectReferenceValue = player;
+                    so.FindProperty("font").objectReferenceValue = SetupAssets.EnsureFont();
+                });
+
+                SetupAssets.Apply(grabber, so => so.FindProperty("photoCamera").objectReferenceValue = photoCamera);
+            }
+
             // Комната собирается раньше витрины, и захвата у компьютера ещё нет: связь
             // прописывается здесь, когда есть обе стороны.
             if (terminal != null)
@@ -488,6 +506,7 @@ namespace Figures.EditorTools
                 so.FindProperty("player").objectReferenceValue = player;
                 so.FindProperty("terminal").objectReferenceValue = terminal;
                 so.FindProperty("hotbarView").objectReferenceValue = hotbarView;
+                so.FindProperty("photoCamera").objectReferenceValue = photoCamera;
 
                 var list = so.FindProperty("stands");
                 list.arraySize = stands.Count;

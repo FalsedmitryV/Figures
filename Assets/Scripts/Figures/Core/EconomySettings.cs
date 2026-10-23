@@ -32,6 +32,9 @@ namespace Figures
 
         public PhotoRates Rates { get; set; } = PhotoRates.Default;
 
+        /// <summary>Сколько снимков помещается в альбом до выкладки.</summary>
+        public int AlbumCapacity { get; set; } = 8;
+
         /// <summary>
         /// Детали на подносе — только из склада игрока. Снять флаг — на поднос
         /// выкладывается весь каталог, как было до коробок: так проверяют читаемость,

@@ -1,3 +1,5 @@
+using System;
+
 namespace Figures
 {
     /// <summary>
@@ -31,7 +33,14 @@ namespace Figures
         /// Посчитать снимок по доске сборки. Собранность — по комплекту: левая рука в
         /// правом плече своей же фигурки ошибкой не считается.
         /// </summary>
-        public static CollectionShot Of(AssemblyBoard board)
+        public static CollectionShot Of(AssemblyBoard board) => Of(board, null);
+
+        /// <summary>
+        /// Снимок того, что попало в кадр. Деталь вне кадра не стоит ни лайка, ни штрафа,
+        /// а собранной фигурка считается, только если в кадре она вся.
+        /// </summary>
+        /// <param name="inFrame">Видна ли деталь. null — в кадре вся витрина.</param>
+        public static CollectionShot Of(AssemblyBoard board, Func<string, bool> inFrame)
         {
             if (board == null) return default;
 
@@ -44,7 +53,7 @@ namespace Figures
                 for (int slot = 0; slot < figure.SlotCount; slot++)
                 {
                     var partId = figure.PartAtSlot(slot);
-                    if (partId == null) continue;
+                    if (partId == null || (inFrame != null && !inFrame(partId))) continue;
 
                     filled++;
                     if (board.OwnerOf(partId) == figure.FigureId) own++;

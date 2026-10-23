@@ -49,11 +49,26 @@ namespace Figures
         /// <summary>Игрок за интерфейсом: курсор свободен, ход и обзор выключены.</summary>
         public bool IsUiMode => _uiMode;
 
+        /// <summary>Курсор свободен и виден, обзор погашен, ход остаётся.</summary>
+        public void SetFreePointer(bool on)
+        {
+            if (_lookSuppressed == on) return;
+
+            _lookSuppressed = on;
+            if (!captureCursor || _uiMode) return;
+
+            if (on) Release();
+            else Capture();
+        }
+
         /// <summary>
-        /// Погасить обзор, не отнимая ход: мышь на это время занята другим. Зовётся
-        /// захватом деталей на время осмотра — иначе одна мышь крутит и деталь, и голову.
+        /// Спрятать свободный курсор, не захватывая его. Захват и режим интерфейса ставят
+        /// видимость сами.
         /// </summary>
-        public void SuppressLook(bool on) => _lookSuppressed = on;
+        public void HidePointer(bool on)
+        {
+            if (_lookSuppressed && !_uiMode) Cursor.visible = !on;
+        }
 
         /// <summary>
         /// Режим интерфейса: курсор свободен, ход и обзор отключены целиком. Включает
@@ -115,11 +130,14 @@ namespace Figures
             {
                 frame = frame.WithoutControl();
             }
+            else if (_lookSuppressed)
+            {
+                frame = frame.WithoutLook();
+            }
             else
             {
                 StepCursor(frame);
                 if (!_captured && captureCursor) frame = frame.WithoutControl();
-                else if (_lookSuppressed) frame = frame.WithoutLook();
             }
 
             _look.Step(frame, Time.deltaTime);

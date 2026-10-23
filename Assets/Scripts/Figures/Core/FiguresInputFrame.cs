@@ -11,38 +11,26 @@ namespace Figures
         /// <summary>Смещение указателя за кадр.</summary>
         public readonly Vector2 PointerDelta;
 
-        public readonly bool GrabPressed;
-        public readonly bool GrabHeld;
-        public readonly bool GrabReleased;
-
-        /// <summary>Зажата кнопка осмотра: сырое состояние, решает по нему логика.</summary>
-        public readonly bool InspectHeld;
-
-        /// <summary>Нажат осмотр в этом кадре: им включается и выключается режим сборки.</summary>
-        public readonly bool InspectPressed;
-
-        /// <summary>Колесо за кадр: выбор ячейки, с модификатором — приближение куска в руках.</summary>
-        public readonly float Zoom;
-
-        /// <summary>Зажат модификатор колеса: колесо приближает кусок, а не перебирает ячейки.</summary>
-        public readonly bool ZoomModifierHeld;
-
-        /// <summary>Убрать деталь из руки в ячейку или достать из выбранной.</summary>
+        public readonly bool PrimaryPressed;
+        public readonly bool PrimaryHeld;
+        public readonly bool PrimaryReleased;
+        public readonly bool SecondaryPressed;
+        public readonly float Wheel;
+        public readonly bool WheelModifierHeld;
         public readonly bool StashPressed;
 
-        public FiguresInputFrame(Vector2 pointer, Vector2 pointerDelta, bool grabPressed,
-            bool grabHeld, bool grabReleased, bool inspectHeld, bool inspectPressed, float zoom,
-            bool zoomModifierHeld, bool stashPressed)
+        public FiguresInputFrame(Vector2 pointer, Vector2 pointerDelta, bool primaryPressed,
+            bool primaryHeld, bool primaryReleased, bool secondaryPressed, float wheel,
+            bool wheelModifierHeld, bool stashPressed)
         {
             Pointer = pointer;
             PointerDelta = pointerDelta;
-            GrabPressed = grabPressed;
-            GrabHeld = grabHeld;
-            GrabReleased = grabReleased;
-            InspectHeld = inspectHeld;
-            InspectPressed = inspectPressed;
-            Zoom = zoom;
-            ZoomModifierHeld = zoomModifierHeld;
+            PrimaryPressed = primaryPressed;
+            PrimaryHeld = primaryHeld;
+            PrimaryReleased = primaryReleased;
+            SecondaryPressed = secondaryPressed;
+            Wheel = wheel;
+            WheelModifierHeld = wheelModifierHeld;
             StashPressed = stashPressed;
         }
 

@@ -24,6 +24,7 @@ namespace Figures
         private const string InteractActionName = "Interact";
         private const string PointerActionName = "Attack";
         private const string CancelActionName = "Cancel";
+        private const string PhotoActionName = "Photo";
 
         [Tooltip("Ассет со всеми привязками. Пусто — ввода не будет.")]
         [SerializeField] private InputActionAsset actions;
@@ -42,6 +43,7 @@ namespace Figures
         private InputAction _interact;
         private InputAction _pointer;
         private InputAction _cancel;
+        private InputAction _photo;
 
         public PlayerInputFrame Current { get; private set; }
 
@@ -67,6 +69,7 @@ namespace Figures
             _jump = _map.FindAction(JumpActionName, false);
             _interact = _map.FindAction(InteractActionName, false);
             _pointer = _map.FindAction(PointerActionName, false);
+            _photo = _map.FindAction(PhotoActionName, false);
 
             // Из карты UI включается одно действие, а не вся карта: остальное в ней
             // спорит с игровым вводом за те же кнопки мыши.
@@ -102,7 +105,8 @@ namespace Figures
                 _jump?.WasPressedThisFrame() ?? false,
                 _interact?.WasPressedThisFrame() ?? false,
                 _pointer?.WasPressedThisFrame() ?? false,
-                _cancel?.WasPressedThisFrame() ?? false);
+                _cancel?.WasPressedThisFrame() ?? false,
+                _photo?.WasPressedThisFrame() ?? false);
         }
 
         /// <summary>

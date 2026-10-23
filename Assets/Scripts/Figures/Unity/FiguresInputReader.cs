@@ -17,33 +17,27 @@ namespace Figures
         public const int ExecutionOrder = -200;
 
         private const string PointActionName = "Point";
-        private const string GrabActionName = "Click";
-        private const string InspectActionName = "RightClick";
-        private const string ZoomActionName = "ScrollWheel";
-        private const string StashActionName = "Interact";
-
-        /// <summary>
-        /// Модификатор колеса. Shift уже есть в карте игрока как бег, и в режиме сборки
-        /// он свободен: там колесо перебирает ячейки, а приближение куска нужно тем же
-        /// колесом. Новая привязка ради этого в ассет не добавляется.
-        /// </summary>
-        private const string ZoomModifierActionName = "Sprint";
+        private const string PrimaryActionName = "Click";
+        private const string SecondaryActionName = "RightClick";
+        private const string WheelActionName = "ScrollWheel";
+        private const string StashActionName = "Stash";
+        private const string WheelModifierActionName = "Sprint";
 
         [Tooltip("Ассет со всеми привязками. Пусто — ввода не будет.")]
         [SerializeField] private InputActionAsset actions;
 
         [SerializeField] private string actionMapName = "UI";
 
-        [Tooltip("Карта, из которой берутся «убрать в ячейку / достать» и модификатор колеса.")]
-        [SerializeField] private string stashMapName = "Player";
+        [Tooltip("Карта игрока.")]
+        [SerializeField] private string playerMapName = "Player";
 
         private InputActionMap _map;
         private InputAction _point;
-        private InputAction _grab;
-        private InputAction _inspect;
-        private InputAction _zoom;
+        private InputAction _primary;
+        private InputAction _secondary;
+        private InputAction _wheel;
         private InputAction _stash;
-        private InputAction _zoomModifier;
+        private InputAction _wheelModifier;
 
         private Vector2 _lastPointer;
         private bool _hasLastPointer;
@@ -66,21 +60,20 @@ namespace Figures
             }
 
             _point = _map.FindAction(PointActionName, false);
-            _grab = _map.FindAction(GrabActionName, false);
-            _inspect = _map.FindAction(InspectActionName, false);
-            _zoom = _map.FindAction(ZoomActionName, false);
-            var stashMap = actions.FindActionMap(stashMapName, false);
-            _stash = stashMap?.FindAction(StashActionName, false);
-            _zoomModifier = stashMap?.FindAction(ZoomModifierActionName, false);
+            _primary = _map.FindAction(PrimaryActionName, false);
+            _secondary = _map.FindAction(SecondaryActionName, false);
+            _wheel = _map.FindAction(WheelActionName, false);
+            var playerMap = actions.FindActionMap(playerMapName, false);
+            _stash = playerMap?.FindAction(StashActionName, false);
+            _wheelModifier = playerMap?.FindAction(WheelModifierActionName, false);
         }
 
-        // Чужое действие только включается, но не выключается: карта Player принадлежит
-        // игроку, и выключенный захват отнял бы у него E у компьютера.
+        // Действия из карты игрока только включаются, но не выключаются: карта принадлежит игроку.
         private void OnEnable()
         {
             _map?.Enable();
             _stash?.Enable();
-            _zoomModifier?.Enable();
+            _wheelModifier?.Enable();
         }
 
         private void OnDisable()
@@ -96,7 +89,7 @@ namespace Figures
 
             // В захваченном курсоре указателя нет: он замирает там, где его заперли.
             // Целью становится центр экрана — то есть то, на что игрок смотрит, — а
-            // смещение приходится брать прямо у устройства, иначе осмотр детали стоял бы.
+            // смещение приходится брать прямо у устройства: указатель стоит на месте.
             var locked = Cursor.lockState == CursorLockMode.Locked;
 
             var pointer = locked
@@ -113,13 +106,12 @@ namespace Figures
             Current = new FiguresInputFrame(
                 pointer,
                 delta,
-                _grab?.WasPressedThisFrame() ?? false,
-                _grab?.IsPressed() ?? false,
-                _grab?.WasReleasedThisFrame() ?? false,
-                _inspect?.IsPressed() ?? false,
-                _inspect?.WasPressedThisFrame() ?? false,
-                (_zoom?.ReadValue<Vector2>() ?? Vector2.zero).y,
-                _zoomModifier?.IsPressed() ?? false,
+                _primary?.WasPressedThisFrame() ?? false,
+                _primary?.IsPressed() ?? false,
+                _primary?.WasReleasedThisFrame() ?? false,
+                _secondary?.WasPressedThisFrame() ?? false,
+                (_wheel?.ReadValue<Vector2>() ?? Vector2.zero).y,
+                _wheelModifier?.IsPressed() ?? false,
                 _stash?.WasPressedThisFrame() ?? false);
         }
     }

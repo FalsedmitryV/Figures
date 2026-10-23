@@ -29,32 +29,32 @@ namespace Figures
     {
         public const int ExecutionOrder = 120;
 
-        /// <summary>
-        /// Насколько близко должны оказаться свободные гнездо и деталь после защёлкивания,
-        /// чтобы сцепиться заодно: таз, севший на одну ногу, цепляет и вторую.
-        /// </summary>
-        private const float JoinTolerance = 0.01f;
+        /// <summary>Допуск попутных сцепок: таз, севший на одну ногу, цепляет и вторую.</summary>
+        private const float ExtraLinkTolerance = 0.01f;
 
-        /// <summary>
-        /// Какую долю отхода от куска занимает деталь, только что достанная из ячейки:
-        /// она должна появиться сбоку, а не внутри куска.
-        /// </summary>
-        private const float FitStartShare = 0.6f;
+        private const float ClickSlopPixels = 6f;
+
+        /// <summary>Дальше наклон перевернул бы кусок вверх ногами.</summary>
+        private const float MaxBenchTiltDegrees = 90f;
 
         [SerializeField] private FiguresInputReader input;
 
         [Tooltip("Камера, из которой идёт луч. Пусто — Camera.main.")]
         [SerializeField] private Camera view;
 
-        [Tooltip("Необязательно. Задан — обзор гасится на время осмотра детали.")]
+        [Tooltip("Необязательно. Пусто — обзор и курсор захват не трогает.")]
         [SerializeField] private FirstPersonPlayer player;
+
+        [Tooltip("Необязательно. Пока поднята фотокамера, щелчок снимает, а не берёт деталь.")]
+        [SerializeField] private PhotoCamera photoCamera;
 
         private readonly List<FigureStandView> _stands = new();
         private readonly Dictionary<string, FigureStandView> _standById = new();
         private readonly List<PartView> _carried = new();
-        private readonly List<PartView> _focus = new();
+        private readonly List<PartView> _benchParts = new();
         private readonly List<Link> _links = new();
         private readonly List<string> _tree = new();
+        private readonly List<PartView> _highlighted = new();
 
         private AssemblyBoard _board;
         private InteractionConfig _config;
@@ -66,9 +66,14 @@ namespace Figures
         private PartView _bench;
         private Link _link;
         private bool _lookSuppressed;
+        private PartView _pressed;
+        private float _pressTravel;
+        private bool _pointerHidden;
+        private bool _pickWholeFigure;
         private float _benchDistance;
-        private Vector2 _fitOffset;
-        private Vector3 _flatten;
+        private float _benchSpin;
+        private float _benchTilt;
+        private Vector3 _screenDepthAxis;
 
         private Hotbar _hotbar;
         private bool _wasBusy;
@@ -76,13 +81,9 @@ namespace Figures
         public PartView Held => _held;
 
         /// <summary>
-        /// Руки заняты: деталь в руке или кусок в режиме сборки. По этому компьютер
-        /// понимает, что E сейчас не про него.
+        /// Руки заняты: деталь в руке или кусок в режиме сборки.
         /// </summary>
-        public bool HasHeld => _held != null || _bench != null;
-
-        /// <summary>Идёт сборка в руках: кусок висит перед глазами.</summary>
-        public bool IsAssembling => _bench != null;
+        public bool HandsBusy => _held != null || _bench != null;
 
         private void Awake()
         {
@@ -136,12 +137,17 @@ namespace Figures
 
             // Пока игрок за компьютером, курсор свободен и щёлкает по кнопкам экрана.
             // Тот же щелчок не должен ещё и хватать деталь со стола. Кадр, в котором
-            // компьютер закрыли, тоже пропускается: E, которой его закрыли, иначе тут же
-            // достала бы деталь из ячейки.
-            var busy = player != null && player.IsUiMode;
+            // компьютер закрыли, тоже пропускается: нажатие, которым его закрыли, не
+            // должно достаться захвату.
+            var busy = (player != null && player.IsUiMode) || (photoCamera != null && photoCamera.IsAiming);
             var wasBusy = _wasBusy;
             _wasBusy = busy;
-            if (busy || wasBusy) return;
+            if (busy || wasBusy)
+            {
+                // Подсвеченная деталь попала бы на снимок ярче остальных.
+                if (busy) SetHovered(null);
+                return;
+            }
 
             var frame = input.Current;
 
@@ -151,17 +157,18 @@ namespace Figures
                 return;
             }
 
-            Scroll(frame.Zoom);
+            Scroll(frame.Wheel);
 
             if (_held == null)
             {
                 if (frame.StashPressed && TakeFromHotbar()) return;
+                if (frame.SecondaryPressed) TogglePickWholeFigure();
 
                 Hover(frame);
                 return;
             }
 
-            if (frame.InspectPressed)
+            if (frame.SecondaryPressed)
             {
                 BeginBench();
                 return;
@@ -178,63 +185,76 @@ namespace Figures
 
         private void Hover(FiguresInputFrame frame)
         {
-            SetHovered(Aim());
+            SetHovered(Pick(Aim()));
 
-            if (frame.GrabPressed)
+            if (frame.PrimaryPressed)
                 DevLog.Info($"[Figures] ЛКМ: под прицелом {(_hovered != null ? _hovered.PartId : "ничего")}.");
 
-            if (frame.GrabPressed && _hovered != null) Take(_hovered);
+            if (frame.PrimaryPressed && _hovered != null) Take(_hovered);
+        }
+
+        /// <summary>
+        /// Подсветка сбрасывается, чтобы пересчитаться в этом же кадре, не дожидаясь
+        /// сдвига прицела.
+        /// </summary>
+        private void TogglePickWholeFigure()
+        {
+            _pickWholeFigure = !_pickWholeFigure;
+            SetHovered(null);
+
+            DevLog.Info($"[Figures] С подставки: {(_pickWholeFigure ? "вся фигурка" : "по детали")}.");
         }
 
         private void Carry(FiguresInputFrame frame)
         {
             Drag(frame);
 
-            if (frame.GrabPressed) Release();
+            if (frame.PrimaryPressed) Release();
         }
 
         /// <summary>
-        /// Режим сборки. Кусок висит перед глазами и никуда не падает: мышь его крутит,
-        /// колесо перебирает ячейки, E достаёт из выбранной деталь и кладёт её обратно,
-        /// ЛКМ защёлкивает поднесённое.
-        ///
-        /// Пустая выбранная ячейка превращает E в «убрать кусок»: достать из пустой
-        /// ячейки нечего, а убрать собранное — ровно то, чего игрок в этот момент хочет.
+        /// Режим сборки: кусок висит перед глазами и никуда не падает. Пустая выбранная
+        /// ячейка превращает «достать» в «убрать кусок»: достать из пустой ячейки нечего,
+        /// а убрать собранное — ровно то, чего игрок в этот момент хочет.
         /// </summary>
         private void Bench(FiguresInputFrame frame)
         {
-            if (frame.InspectPressed)
+            if (frame.SecondaryPressed)
             {
                 EndBench();
                 return;
             }
 
-            if (frame.ZoomModifierHeld) Zoom(frame.Zoom);
-            else Scroll(frame.Zoom);
+            if (frame.WheelModifierHeld) Zoom(frame.Wheel);
+            else Scroll(frame.Wheel);
 
             var eye = view.transform;
             var at = eye.position + eye.forward * _benchDistance;
-            _bench.PlaceAt(at, _bench.transform.rotation);
+            _bench.PlaceAt(at, BenchRotation(eye));
+            SetPointerHidden(_held != null);
 
             if (_held == null)
             {
-                Turn(frame.PointerDelta, eye);
-
-                if (frame.StashPressed)
+                if (frame.PrimaryPressed)
                 {
-                    if (!TakeFromHotbar()) Pocket();
-                    return;
+                    _pressed = BenchPartUnderPointer();
+                    _pressTravel = 0f;
                 }
 
-                if (frame.GrabPressed) EndBench();
+                if (_pressed != null && frame.PrimaryHeld)
+                {
+                    _pressTravel += frame.PointerDelta.magnitude;
+                    Turn(frame.PointerDelta);
+                }
+
+                if (frame.PrimaryReleased && PullOff()) return;
+
+                if (frame.StashPressed && !TakeFromHotbar()) Pocket();
                 return;
             }
 
-            Fit(frame.PointerDelta, at, eye);
-
-            // Глубину до гнезда игроку не задать: деталь ходит по экрану. Поэтому на
-            // время поиска гнезда расстояние меряется поперёк взгляда.
-            _flatten = eye.forward;
+            _held.PlaceAt(PointerOnBenchPlane(frame.Pointer, at, eye), _bench.transform.rotation);
+            _screenDepthAxis = eye.forward;
             SetLink(Nearest());
 
             if (frame.StashPressed)
@@ -243,7 +263,7 @@ namespace Figures
                 return;
             }
 
-            if (frame.GrabPressed) Join();
+            if (frame.PrimaryPressed) Join();
         }
 
         /// <summary>
@@ -261,12 +281,13 @@ namespace Figures
                 _config.InspectDistance,
                 _config.InspectZoomRange.x,
                 _config.InspectZoomRange.y);
-            _fitOffset = Vector2.zero;
+            _benchSpin = 0f;
+            _benchTilt = 0f;
 
             SetHovered(null);
             SetLink(default);
             SetLookSuppressed(true);
-            Focus();
+            CollectBenchParts();
 
             DevLog.Info($"[Figures] Режим сборки: в руках {_bench.PartId}.");
         }
@@ -290,10 +311,12 @@ namespace Figures
 
             _held = _bench;
             _bench = null;
-            _focus.Clear();
-            _flatten = Vector3.zero;
+            _pressed = null;
+            _benchParts.Clear();
+            _screenDepthAxis = Vector3.zero;
 
             SetLink(default);
+            SetPointerHidden(false);
             SetLookSuppressed(false);
 
             _held.Hold();
@@ -324,28 +347,66 @@ namespace Figures
         /// <summary>
         /// Крутить кусок в руках. Обзор на время сборки погашен: одна мышь не может
         /// одновременно поворачивать деталь и голову.
+        ///
+        /// Поза хранится двумя углами, а не накапливается поворотами вокруг осей экрана:
+        /// чередование «вверх» и «вправо» копит крен вокруг оси взгляда, и убрать его
+        /// мышью нечем — третьей оси у неё нет.
         /// </summary>
-        private void Turn(Vector2 delta, Transform eye)
+        private void Turn(Vector2 delta)
         {
             if (delta.sqrMagnitude <= 0f) return;
 
             var speed = _config.InspectRotateSpeed;
-            _bench.transform.Rotate(eye.up, -delta.x * speed, Space.World);
-            _bench.transform.Rotate(eye.right, delta.y * speed, Space.World);
+            _benchSpin = Mathf.Repeat(_benchSpin - delta.x * speed, 360f);
+            _benchTilt = Mathf.Clamp(_benchTilt + delta.y * speed, -MaxBenchTiltDegrees, MaxBenchTiltDegrees);
         }
 
         /// <summary>
-        /// Поднести деталь к куску. Смещение накапливается, а не берётся из позиции
-        /// указателя: в захваченном курсоре позиции нет вовсе, он заперт в центре экрана.
+        /// Поза куска в руках: прямо и лицом к игроку, затем наклон к себе или от себя
+        /// вокруг горизонтали экрана и поворот вокруг собственной вертикали куска. У лица
+        /// локальная ось X смотрит влево от игрока, поэтому наклон идёт с обратным знаком.
         /// </summary>
-        private void Fit(Vector2 delta, Vector3 at, Transform eye)
+        private Quaternion BenchRotation(Transform eye) =>
+            Quaternion.LookRotation(-eye.forward, eye.up)
+            * Quaternion.AngleAxis(-_benchTilt, Vector3.right)
+            * Quaternion.AngleAxis(_benchSpin, Vector3.up);
+
+        /// <summary>
+        /// Коллайдеры куска на время сборки выключены
+        /// (<see cref="CollectBenchParts"/>), поэтому на один запрос они включаются: границы отрисовки
+        /// описывают кусок коробкой, а снимать деталь надо по точному попаданию.
+        /// </summary>
+        private PartView BenchPartUnderPointer()
         {
-            _fitOffset += delta * _config.FitSpeed;
+            foreach (var part in _benchParts) part.SetPickable(true);
+            Physics.SyncTransforms();
 
-            var range = _config.FitRange;
-            if (_fitOffset.sqrMagnitude > range * range) _fitOffset = _fitOffset.normalized * range;
+            var aimed = Aim();
 
-            _held.PlaceAt(at + eye.right * _fitOffset.x + eye.up * _fitOffset.y, _held.transform.rotation);
+            foreach (var part in _benchParts) part.SetPickable(false);
+            return aimed != null && _benchParts.Contains(aimed) ? aimed : null;
+        }
+
+        /// <summary>
+        /// Снять деталь с куска в руках: короткий щелчок по ней без протяжки. Уходит она
+        /// на примерку со всем, что на ней держится. Корень снять нельзя — он и есть кусок.
+        /// </summary>
+        private bool PullOff()
+        {
+            var part = _pressed;
+            _pressed = null;
+            if (part == null || part == _bench || _pressTravel > ClickSlopPixels) return false;
+
+            Take(part);
+            CollectBenchParts();
+
+            DevLog.Info($"[Figures] {part.PartId} снята с куска: в руках {_bench.PartId}.");
+            return true;
+        }
+        private Vector3 PointerOnBenchPlane(Vector2 pointer, Vector3 at, Transform eye)
+        {
+            var ray = view.ScreenPointToRay(pointer);
+            return new Plane(-eye.forward, at).Raycast(ray, out var enter) ? ray.GetPoint(enter) : at;
         }
 
         /// <summary>
@@ -364,7 +425,7 @@ namespace Figures
 
             // Попутные сцепки ищутся по настоящему расстоянию: допуск у них 1 см, и
             // плоская мерка свела бы в одну точку гнёзда, разнесённые по глубине.
-            _flatten = Vector3.zero;
+            _screenDepthAxis = Vector3.zero;
 
             if (!Attach(part, _link, inHand: true))
             {
@@ -378,7 +439,7 @@ namespace Figures
 
             var root = ViewOf(_board.RootOf(part.PartId));
             if (root != null) _bench = root;
-            Focus();
+            CollectBenchParts();
 
             DevLog.Info($"[Figures] {part.PartId} села в кусок: в руках {_bench.PartId}.");
         }
@@ -393,21 +454,28 @@ namespace Figures
             if (_lookSuppressed == on) return;
 
             _lookSuppressed = on;
-            if (player != null) player.SuppressLook(on);
+            if (player != null) player.SetFreePointer(on);
+        }
+
+        private void SetPointerHidden(bool on)
+        {
+            if (_pointerHidden == on) return;
+
+            _pointerHidden = on;
+            if (player != null) player.HidePointer(on);
         }
 
         /// <summary>
         /// Пересобрать кусок в руках: только его детали считаются «снаружи», когда
-        /// ищется гнездо. Иначе деталь, поднесённая к глазам, цеплялась бы за стол и за
-        /// подставки на другом конце комнаты.
+        /// ищется гнездо.
         /// </summary>
-        private void Focus()
+        private void CollectBenchParts()
         {
-            _focus.Clear();
+            _benchParts.Clear();
             if (_bench == null) return;
 
-            _bench.GetComponentsInChildren(_focus);
-            foreach (var part in _focus) part.SetPickable(false);
+            _bench.GetComponentsInChildren(_benchParts);
+            foreach (var part in _benchParts) part.SetPickable(false);
         }
 
         private void Drag(FiguresInputFrame frame)
@@ -473,10 +541,9 @@ namespace Figures
 
             if (_bench != null)
             {
-                // В режиме сборки деталь появляется сбоку от куска, а не внутри него.
-                _fitOffset = new Vector2(_config.FitRange * FitStartShare, 0f);
-                part.PlaceAt(eye.position + eye.forward * _benchDistance + eye.right * _fitOffset.x,
-                    part.transform.rotation);
+                // В режиме сборки деталь встаёт туда, где курсор: дальше её ведёт он.
+                var at = eye.position + eye.forward * _benchDistance;
+                part.PlaceAt(PointerOnBenchPlane(input.Current.Pointer, at, eye), _bench.transform.rotation);
             }
             else
             {
@@ -505,8 +572,9 @@ namespace Figures
             SetPickable(false);
             DevLog.Info($"[Figures] Взята {part.PartId} (кадр {Time.frameCount}).");
             // То, на чём деталь держалась, могло потерять опору: таз на одной ноге,
-            // которую сняли, падает со всем, что на нём собрано.
-            if (formerHolder != null) Settle(formerHolder, null, Placement.Stay);
+            // которую сняли, падает со всем, что на нём собрано. Кусок в режиме сборки
+            // держит игрок — его в физику не отпускать.
+            if (formerHolder != null && _bench == null) Settle(formerHolder, null, Placement.Stay);
         }
 
         private void Release()
@@ -539,7 +607,7 @@ namespace Figures
             var placement = Placement.Align(root.transform, link.Moving, link.Target);
 
             _links.Clear();
-            FindLinks(placement, JoinTolerance, _links);
+            FindLinks(placement, ExtraLinkTolerance, _links);
 
             if (!_board.TryAttach(link.Part.PartId, link.Socket.Ref)) return false;
 
@@ -613,6 +681,18 @@ namespace Figures
                 root.SettleAt(parent, root.transform.position, root.transform.rotation, 0f, anchored);
         }
 
+        /// <summary>
+        /// На подставке — по режиму (<see cref="TogglePickWholeFigure"/>), вне её кусок не
+        /// разбирается: за любую его деталь берётся весь кусок.
+        /// </summary>
+        private PartView Pick(PartView aimed)
+        {
+            if (aimed == null) return null;
+
+            var picked = ViewOf(_board.PickOf(aimed.PartId, _pickWholeFigure));
+            return picked != null ? picked : aimed;
+        }
+
         private PartView Aim()
         {
             var ray = view.ScreenPointToRay(input.Current.Pointer);
@@ -642,7 +722,7 @@ namespace Figures
         /// рука входит в любое плечо. Чужую деталь гнездо принимает так же, как свою:
         /// отказ по владельцу выдал бы ответ до проверки.
         ///
-        /// В режиме сборки «остальной мир» — это только кусок в руках (<see cref="_focus"/>):
+        /// В режиме сборки «остальной мир» — это только кусок в руках (<see cref="_benchParts"/>):
         /// подставки и стол на другом конце комнаты в примерке не участвуют.
         /// </summary>
         private void FindLinks(Placement placement, float radius, List<Link> into)
@@ -660,7 +740,7 @@ namespace Figures
                             foreach (var port in other.Ports)
                                 Consider(part, port, at, port.transform.position, false, limit, into);
 
-                if (_focus.Count == 0 && BodyPlan.MountsOnStand(part.Kind))
+                if (_benchParts.Count == 0 && BodyPlan.MountsOnStand(part.Kind))
                     foreach (var stand in _stands)
                         foreach (var socket in stand.Sockets)
                             if (socket != null)
@@ -685,7 +765,7 @@ namespace Figures
 
             // Плоская мерка режима сборки: вдоль взгляда расстояние не считается, потому
             // что этой оси у подносимой детали нет — она ходит по экрану.
-            if (_flatten != Vector3.zero) delta -= _flatten * Vector3.Dot(delta, _flatten);
+            if (_screenDepthAxis != Vector3.zero) delta -= _screenDepthAxis * Vector3.Dot(delta, _screenDepthAxis);
 
             var sqr = delta.sqrMagnitude;
             if (sqr > limit || !_board.Accepts(part.PartId, socket.Ref)) return;
@@ -695,7 +775,7 @@ namespace Figures
 
         private bool IsOutside(PartView part) =>
             part != null && part.gameObject.activeInHierarchy && !_carried.Contains(part)
-            && (_focus.Count == 0 || _focus.Contains(part));
+            && (_benchParts.Count == 0 || _benchParts.Contains(part));
 
         public PartView ViewOf(string partId)
         {
@@ -722,9 +802,16 @@ namespace Figures
         {
             if (_hovered == part) return;
 
-            if (_hovered != null) _hovered.SetHighlighted(false, _config.HoverBoost);
+            foreach (var lit in _highlighted)
+                if (lit != null) lit.SetHighlighted(false, _config.HoverBoost);
+            _highlighted.Clear();
+
             _hovered = part;
-            if (_hovered != null) _hovered.SetHighlighted(true, _config.HoverBoost);
+            if (_hovered == null) return;
+
+            // Подсвечивается всё, что уйдёт в руку: за руку со стола берётся весь кусок.
+            _hovered.GetComponentsInChildren(_highlighted);
+            foreach (var lit in _highlighted) lit.SetHighlighted(true, _config.HoverBoost);
         }
 
         private void SetLink(Link link)

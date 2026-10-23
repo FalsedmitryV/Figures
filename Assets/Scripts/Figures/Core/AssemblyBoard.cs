@@ -174,6 +174,14 @@ namespace Figures
             return null;
         }
 
+        /// <summary>
+        /// Что уходит в руку, когда берут эту деталь. На подставке — деталь со всем, что
+        /// на ней держится, или все скреплённые детали как одна (whole), вместе с ногами.
+        /// Вне подставок кусок берётся только целиком, за какую деталь ни возьми.
+        /// </summary>
+        public string PickOf(string partId, bool whole) =>
+            whole || StandOf(partId) == null ? RootOf(partId) : partId;
+
         /// <summary>Весь кусок, в котором стоит деталь: корень первым, дальше — вниз по креплениям.</summary>
         public void CollectTree(string partId, List<string> into)
         {

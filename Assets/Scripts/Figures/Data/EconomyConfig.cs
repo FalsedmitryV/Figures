@@ -54,6 +54,9 @@ namespace Figures
         [Tooltip("Монет за лайк прироста. Платят за прирост, а не за факт публикации.")]
         [Min(0f)][SerializeField] private float coinsPerLike = 1.5f;
 
+        [Tooltip("Сколько снимков камеры ждёт в альбоме до выкладки. Полный альбом — сначала удали лишние.")]
+        [Min(1)][SerializeField] private int albumCapacity = 8;
+
         [Header("Склад")]
         [Tooltip("Детали на подносе — только из склада. Снять — выкладывается весь каталог, как до коробок.")]
         [SerializeField] private bool useInventory = true;
@@ -65,6 +68,7 @@ namespace Figures
             Seed = seed,
             Offers = Offers,
             UseInventory = useInventory,
+            AlbumCapacity = albumCapacity,
             Rates = new PhotoRates
             {
                 PerAssembled = likesPerAssembled,
