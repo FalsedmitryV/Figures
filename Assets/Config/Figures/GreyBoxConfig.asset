@@ -30,10 +30,10 @@ MonoBehaviour:
     scale: {x: 0.075, y: 0.04, z: 0.055}
   - kind: 4
     primitive: 1
-    scale: {x: 0.028, y: 0.033, z: 0.028}
+    scale: {x: 0.022, y: 0.036, z: 0.032}
   - kind: 5
     primitive: 1
-    scale: {x: 0.032, y: 0.032, z: 0.032}
+    scale: {x: 0.026, y: 0.064, z: 0.042}
   ports:
   - holder: 6
     kind: 5
@@ -50,11 +50,11 @@ MonoBehaviour:
   - holder: 3
     kind: 4
     index: 0
-    offset: {x: -0.06, y: 0.011, z: 0}
+    offset: {x: -0.056, y: 0, z: 0}
   - holder: 3
     kind: 4
     index: 1
-    offset: {x: 0.06, y: 0.011, z: 0}
+    offset: {x: 0.056, y: 0, z: 0}
   - holder: 3
     kind: 0
     index: 0
